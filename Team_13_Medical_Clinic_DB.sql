@@ -1,6 +1,7 @@
-CREATE DATABASE clinic_db;
-USE clinic_db;
+CREATE DATABASE team_13_medical_clinic_db;
+USE team_13_medical_clinic_db;
 
+SHOW TABLES;
 
 CREATE TABLE clinic (
     clinic_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -10,7 +11,7 @@ CREATE TABLE clinic (
     city VARCHAR(50),
     state VARCHAR(50),
     zip_code VARCHAR(10)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE department (
@@ -21,7 +22,7 @@ CREATE TABLE department (
     FOREIGN KEY (clinic_id) REFERENCES clinic(clinic_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE office (
@@ -35,7 +36,7 @@ CREATE TABLE office (
     FOREIGN KEY (clinic_id) REFERENCES clinic(clinic_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE physician (
@@ -50,7 +51,7 @@ CREATE TABLE physician (
     FOREIGN KEY (department_id) REFERENCES department(department_id)
         ON DELETE SET NULL
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE work_schedule (
@@ -64,7 +65,7 @@ CREATE TABLE work_schedule (
         ON DELETE CASCADE,
     FOREIGN KEY (office_id) REFERENCES office(office_id)
         ON DELETE CASCADE
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE insurance (
@@ -74,7 +75,7 @@ CREATE TABLE insurance (
     coverage_percentage DECIMAL(5,2),
     group_number VARCHAR(50),
     phone_number VARCHAR(20)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE patient (
@@ -95,13 +96,13 @@ CREATE TABLE patient (
     insurance_id INT NOT NULL,
     FOREIGN KEY (primary_physician_id) REFERENCES physician(physician_id),
     FOREIGN KEY (insurance_id) REFERENCES insurance(insurance_id)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE appointment_status (
     status_id INT PRIMARY KEY AUTO_INCREMENT,
     status_name VARCHAR(20)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE appointment (
@@ -119,7 +120,7 @@ CREATE TABLE appointment (
     FOREIGN KEY (physician_id) REFERENCES physician(physician_id),
     FOREIGN KEY (office_id) REFERENCES office(office_id),
     FOREIGN KEY (status_id) REFERENCES appointment_status(status_id)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE medical_history (
@@ -131,7 +132,7 @@ CREATE TABLE medical_history (
     notes VARCHAR(350),
     FOREIGN KEY (patient_id) REFERENCES patient(patient_id)
         ON DELETE CASCADE
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE diagnosis (
@@ -146,7 +147,7 @@ CREATE TABLE diagnosis (
     FOREIGN KEY (appointment_id) REFERENCES appointment(appointment_id)
         ON DELETE CASCADE,
     FOREIGN KEY (physician_id) REFERENCES physician(physician_id)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE treatment (
@@ -158,13 +159,13 @@ CREATE TABLE treatment (
     notes TEXT,
     FOREIGN KEY (diagnosis_id) REFERENCES diagnosis(diagnosis_id)
         ON DELETE CASCADE
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE referral_status (
     referral_status_id INT PRIMARY KEY AUTO_INCREMENT,
     referral_status_name VARCHAR(20)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE referral (
@@ -180,7 +181,7 @@ CREATE TABLE referral (
     FOREIGN KEY (primary_physician_id) REFERENCES physician(physician_id),
     FOREIGN KEY (specialist_id) REFERENCES physician(physician_id),
     FOREIGN KEY (referral_status_id) REFERENCES referral_status(referral_status_id)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE staff (
@@ -197,7 +198,7 @@ CREATE TABLE staff (
     shift_end TIME,
     FOREIGN KEY (department_id) REFERENCES department(department_id)
         ON DELETE SET NULL
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE billing (
@@ -213,4 +214,7 @@ CREATE TABLE billing (
     FOREIGN KEY (appointment_id) REFERENCES appointment(appointment_id),
     FOREIGN KEY (patient_id) REFERENCES patient(patient_id),
     FOREIGN KEY (insurance_id) REFERENCES insurance(insurance_id)
-);
+) ENGINE=InnoDB;
+
+SELECT DATABASE();
+
