@@ -1,0 +1,44 @@
+body {
+    min-height: 100vh;
+    background-color: #52796f;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+h1 {
+    color: #cad2c5;
+    font-family: Garamond;
+}
+
+.PLW {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: grey;
+    border-radius: 25px;
+    width: 300px;
+    margin: 50px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+label {
+    margin-top: 10px;
+}
+
+button {
+    background-color: white;
+    margin: 20px;
+}
+
+a {
+    margin-top: 10px;
+}
