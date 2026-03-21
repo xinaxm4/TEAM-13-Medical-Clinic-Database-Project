@@ -1,0 +1,16 @@
+#logoutBtn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+
+  padding: 10px 16px;
+  background-color: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#logoutBtn:hover {
+  background-color: #e60000;
+}

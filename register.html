@@ -3,11 +3,69 @@
 
     <head>
         <title>Register Webpage</title>
+        <link rel="stylesheet" href="Register.css">
     </head>
 
     <body>
 
-        <h1>MC's Register Page.</h1>
+        <h1>Clinic Register Page.</h1>
+
+        <div  class="Register">
+
+            <form>
+
+                <div class="form-grid">
+
+                    <div>
+                        <label>First Name</label>
+                        <input type="text" id="fname" required>
+                    </div>
+
+                    <div>
+                        <label>Last Name</label>
+                        <input type="text" id="lname" required>
+                    </div>
+
+                    <div>
+                        <label>Email</label>
+                        <input type="text" id="email" required>     
+                    </div>
+
+                    <div>
+                        <label>Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+
+                    <div>
+                        <label>SSN</label>
+                        <input type="text" id="ssn" required>
+                    </div>
+
+                    <div>
+                        <label>Phone Number</label>
+                        <input type="tel" id="phonenum" required>
+                    </div>
+
+                    <div>
+                        <label>Address</label>
+                        <input type="text" id="address" required>
+                    </div>
+
+                    <div>
+                        <label>Date of Birth</label>
+                        <input type="date" id="DOB" placeholder="(mm/dd/yyyy)" required>
+                    </div>
+
+                </div>
+                
+            </form>
+
+            <button type="button" id="btn">Create Account</button>
+            <p id="message"></p>
+
+        </div>
+
+        <script src="register.js"></script>
 
     </body>
 

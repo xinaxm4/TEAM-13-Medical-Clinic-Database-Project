@@ -3,31 +3,35 @@
 
     <head>
         <title>Patient Login Webpage</title>
-        <link rel="stylesheet" href="style_PLW.css">
+        <link rel="stylesheet" href="Patient_login.css">
     </head>
 
     <body>
+
         <h1>Welcome! Please login to your account.</h1>
 
-        <div  class="PLW">
+        <div  class="Patient_login">
 
             <h2>Sign in</h2>
 
             <form>
 
                 <label>Email</label>
-                <input type="text" placeholder="Enter Email" required>
+                <input type="text" id="email" placeholder="Enter Email" required>
 
                 <label>Password</label>
-                <input type="password" placeholder="Enter Password" required>
+                <input type="password" id="password" placeholder="Enter Password" required>
 
                 <a href="register.html">Create an account</a>
                 
             </form>
 
-            <button id="btn">LOGIN</button>
+            <button type="button" id="btn">LOGIN</button>
+            <p id="message"></p>
 
         </div>
+
+        <script src="patient_login.js"></script>
 
     </body>
 
