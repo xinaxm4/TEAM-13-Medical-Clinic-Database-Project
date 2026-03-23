@@ -1,0 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap');
+
+*, html, body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Merriweather", serif;
+    background: #f5f7fa;
+    color: #222;
+}
+
+/* ── Nav ── */
+header {
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    background: rgba(31, 42, 109, 0.92);
+    backdrop-filter: blur(6px);
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 80px;
+}
+
+nav ul {
+    display: flex;
+    gap: 30px;
+    list-style: none;
+}
+
+nav a {
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+.logo {
+    color: white;
+}
+
+/* ── Clinic Hero Banner ── */
+.clinic-banner {
+    height: 42vh;
+    background-image: url("../images/locations.jpg");
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 80px 40px;
+}
+
+.clinic-banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(31, 42, 109, 0.72);
+}
+
+.banner-text {
+    position: relative;
+    z-index: 1;
+    color: white;
+}
+
+.banner-text .state-tag {
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.85;
+}
+
+.banner-text h1 {
+    font-size: 44px;
+}
+
+/* ── Page Content ── */
+.page-content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 40px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 60px;
+}
+
+/* ── Section Header ── */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.section-header h2 {
+    font-size: 22px;
+    color: #1f2a6d;
+}
+
+.section-header .bar {
+    flex: 1;
+    height: 2px;
+    background: #e0e4f0;
+}
+
+/* ── Address Card ── */
+.address-card {
+    background: white;
+    border-radius: 14px;
+    padding: 28px 32px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.address-card p {
+    font-size: 15px;
+    color: #444;
+    line-height: 1.7;
+}
+
+.address-card .phone-main {
+    font-weight: 700;
+    color: #1f2a6d;
+    font-size: 15px;
+}
+
+/* ── Departments Grid ── */
+.dept-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.dept-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px 22px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    border-left: 4px solid #6ea8fe;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dept-card h4 {
+    font-size: 15px;
+    color: #1f2a6d;
+}
+
+.dept-card .dept-phone {
+    font-size: 13px;
+    color: #555;
+}
+
+.dept-card .dept-desc {
+    font-size: 12px;
+    color: #999;
+    font-weight: 300;
+}
+
+/* ── Doctors Grid ── */
+.doctors-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.doctor-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px 22px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.doctor-card .avatar {
+    width: 48px;
+    height: 48px;
+    background: #1f2a6d;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.doctor-card h4 {
+    font-size: 15px;
+    color: #222;
+}
+
+.doctor-card .specialty {
+    font-size: 13px;
+    color: #6ea8fe;
+    font-weight: 700;
+}
+
+.doctor-card .accepts {
+    font-size: 12px;
+    color: #999;
+    font-weight: 300;
+}
+
+/* ── Back Link + CTA ── */
+.bottom-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.back-link {
+    font-size: 14px;
+    color: #1f2a6d;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.btn-book {
+    padding: 14px 32px;
+    background: #6ea8fe;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 15px;
+    font-family: "Merriweather", serif;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-book:hover {
+    background: #4a90e2;
+}
