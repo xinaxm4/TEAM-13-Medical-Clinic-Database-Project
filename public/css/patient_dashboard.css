@@ -1,0 +1,29 @@
+body {
+    min-height: 100vh;
+    background-color: #52796f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px;
+    font-family: Garamond;
+}
+
+h1, h2 {
+    color: #cad2c5;
+}
+
+#logoutBtn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px 16px;
+    background-color: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#logoutBtn:hover {
+    background-color: #e60000;
+}

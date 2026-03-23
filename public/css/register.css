@@ -1,0 +1,52 @@
+body {
+    min-height: 100vh;
+    background-color: #52796f;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+h1 {
+    color: #cad2c5;
+    font-family: Garamond;
+}
+
+.Register {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: grey;
+    border-radius: 25px;
+    width: 500px;
+    margin: 50px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+label {
+    margin-top: 20px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 20px;
+}
+
+.form-grid div {
+    display: flex;
+    flex-direction: column;
+}
+
+button {
+    background-color: white;
+    margin: 40px;
+}
