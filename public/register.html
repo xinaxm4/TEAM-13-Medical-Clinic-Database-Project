@@ -1,46 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Register - Palantir Clinic</title>
+    <title>Create Account - Palantir Clinic</title>
     <link rel="stylesheet" href="css/register.css">
 </head>
 <body>
-    <h1>Palantir Clinic — Create Account</h1>
 
-    <div class="Register">
-        <form>
-            <div class="form-grid">
-                <div>
-                    <label>First Name</label>
-                    <input type="text" id="fname" required>
-                </div>
-                <div>
-                    <label>Last Name</label>
-                    <input type="text" id="lname" required>
-                </div>
-                <div>
-                    <label>Email</label>
-                    <input type="text" id="email" required>
-                </div>
-                <div>
-                    <label>Password</label>
-                    <input type="password" id="password" required>
-                </div>
-                <div>
-                    <label>Phone Number</label>
-                    <input type="tel" id="phonenum" required>
-                </div>
-                <div>
-                    <label>Date of Birth</label>
-                    <input type="date" id="DOB" required>
-                </div>
+<header>
+    <nav>
+        <h2 class="logo">Palantir Clinic</h2>
+        <ul>
+            <li><a href="../.html/home_page.html">Home</a></li>
+            <li><a href="../.html/about.html">About</a></li>
+            <li><a href="../.html/locations.html">Locations</a></li>
+        </ul>
+    </nav>
+</header>
+
+<section class="hero">
+    <div class="form-card">
+        <h2>Create Account</h2>
+        <p class="subtitle">Register to book and manage appointments</p>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="fname" placeholder="First name" required>
             </div>
-        </form>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" id="lname" placeholder="Last name" required>
+            </div>
+            <div class="form-group full-width">
+                <label>Email</label>
+                <input type="text" id="email" placeholder="Enter your email" required>
+            </div>
+            <div class="form-group full-width">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Create a password" required>
+            </div>
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" id="phonenum" placeholder="(555) 000-0000" required>
+            </div>
+            <div class="form-group">
+                <label>Date of Birth</label>
+                <input type="date" id="DOB" required>
+            </div>
+        </div>
 
         <button type="button" id="btn">Create Account</button>
         <p id="message"></p>
-    </div>
 
-    <script src="js/register.js"></script>
+        <p class="switch-link">Already have an account? <a href="patient_login.html">Sign in here</a></p>
+    </div>
+</section>
+
+<script src="js/register.js"></script>
 </body>
 </html>
