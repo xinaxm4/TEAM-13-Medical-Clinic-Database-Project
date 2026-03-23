@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Merriweather", serif;
+}
+
+header {
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 80px;
+}
+
+nav ul {
+    display: flex;
+    gap: 30px;
+    list-style: none;
+}
+
+nav a {
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+}
+
+.logo {
+    color: white;
+}
+
+.hero {
+    height: 100vh;
+    background-image: url("../images/medical_homepage_image.jpg");
+    background-size: cover;
+    background-position: center;
+    position: relative;
+}
+
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(31, 42, 109, 0.7);
+}
+
+.hero-text {
+    position: relative;
+    z-index: 1;
+    color: white;
+    text-align: center;
+    top: 40%;
+}
+
+.hero-text h1 {
+    font-size: 64px;
+    margin: 20px 0;
+}
+
+.hero-text p {
+    font-size: 20px;
+    margin-bottom: 30px;
+}
+
+.hero-text button {
+    padding: 14px 30px;
+    border: none;
+    background: #6ea8fe;
+    color: white;
+    border-radius: 25px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.hero-text button:hover {
+    background: #4a90e2;
+}
