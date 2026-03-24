@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Palantir Clinic</title>
+    <link rel="stylesheet" href="../styles/home_page.css">
+    <link rel="stylesheet" href="../styles/sidebar.css">
+</head>
+
+<body>
+
+<header>
+    <nav>
+        <h2 class="logo">Palantir Clinic</h2>
+        <ul>
+            <li><a href="about.html">About</a></li>
+            <li><a href="locations/locations.html">Locations</a></li>
+            <li><a href="../auth/patient_login.html">Patient Login</a></li>
+            <li><a href="../auth/staff_login.html">Staff Portal</a></li>
+        </ul>
+    </nav>
+</header>
+
+<section class="hero">
+    <div class="hero-text">
+        <h1>Welcome to Palantir Clinic</h1>
+        <p>Compassionate care across multiple locations.</p>
+
+        <!-- Smart Search -->
+        <div class="search-row">
+            <div class="search-wrapper">
+                <span class="search-icon">&#128269;</span>
+                <input
+                    type="text"
+                    id="hero-search"
+                    placeholder="Search doctors, specialties, locations&hellip;"
+                    autocomplete="off"
+                >
+                <div id="search-results" class="search-results" role="listbox"></div>
+            </div>
+            <a href="locations/locations.html" class="btn-locations">View Locations &rarr;</a>
+        </div>
+
+        <a href="../auth/patient_login.html" class="btn-book-link">
+            <button class="btn-book">Book an Appointment</button>
+        </a>
+    </div>
+</section>
+
+<script src="../scripts/sidebar.js" defer></script>
+<script src="../scripts/search.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Staff Portal - Palantir Clinic</title>
+    <link rel="stylesheet" href="../styles/staff_login.css">
+</head>
+<body>
+
+<header>
+    <nav>
+        <h2 class="logo">Palantir Clinic</h2>
+        <ul>
+            <li><a href="../pages/home_page.html">Home</a></li>
+            <li><a href="../pages/about.html">About</a></li>
+            <li><a href="../pages/locations/locations.html">Locations</a></li>
+            <li><a href="patient_login.html">Patient Login</a></li>
+        </ul>
+    </nav>
+</header>
+
+<section class="hero">
+    <div class="form-card">
+        <div class="staff-badge">Staff Portal</div>
+        <h2>Physician &amp; Staff Login</h2>
+        <p class="subtitle">Access your clinic dashboard</p>
+
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Enter your username" required>
+        </div>
+
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Enter your password" required>
+        </div>
+
+        <button type="button" id="btn">Sign In</button>
+        <p id="message"></p>
+
+        <p class="admin-note">Don't have an account? Contact your system administrator.</p>
+    </div>
+</section>
+
+<script src="../scripts/auth/staff_login.js"></script>
+</body>
+</html>

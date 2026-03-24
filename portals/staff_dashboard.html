@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Staff Portal - Palantir Clinic</title>
+    <link rel="stylesheet" href="../styles/dashboard.css">
+    <style>
+        /* Staff purple accent overrides */
+        .nav-item.active   { border-left-color: #9e6afe; color: #3a1a6d; }
+        .sidebar-logo .clinic-name { color: #3a1a6d; }
+        .user-avatar       { background: #4a2c8a; }
+        .stat-card         { border-left-color: #9e6afe; }
+        .greeting-card h2  { color: #3a1a6d; }
+        .greeting-badge    { background: #ede9fe; color: #5b21b6; }
+        .section-block-header h3 { color: #3a1a6d; }
+        .quick-btn.purple  { background: #4a2c8a; }
+        .quick-btn.violet  { background: #7c3aed; }
+        .quick-btn.navy    { background: #1f2a6d; }
+        .stat-card .stat-value { color: #3a1a6d; }
+        .schedule-card     { border-left-color: #9e6afe; background: #f5f3ff; }
+        .schedule-card .day { color: #3a1a6d; }
+        .topbar-title span { color: #3a1a6d; }
+        .pill-shift        { background: #ede9fe; color: #5b21b6; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-wrap">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="clinic-name">Palantir Clinic</div>
+            <div class="portal-label">Staff Portal</div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Menu</div>
+            <button class="nav-item active" onclick="showSection('overview')">
+                <span class="nav-icon">🏠</span> Overview
+            </button>
+            <button class="nav-item" onclick="showSection('appointments')">
+                <span class="nav-icon">📅</span> Appointments
+            </button>
+            <button class="nav-item" onclick="showSection('billing')">
+                <span class="nav-icon">💳</span> Billing Queue
+            </button>
+            <button class="nav-item" onclick="showSection('profile')">
+                <span class="nav-icon">👤</span> My Profile
+            </button>
+        </nav>
+        <div class="sidebar-user">
+            <div class="user-avatar" id="avatarInitials">ST</div>
+            <div class="user-info">
+                <div class="user-name" id="sidebarName">Loading…</div>
+                <div class="user-role" id="sidebarRole">Staff</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ── Main ── -->
+    <div class="main-content">
+
+        <div class="topbar">
+            <div class="topbar-title">Palantir Clinic &rsaquo; <span id="currentSection">Overview</span></div>
+            <button class="logout-btn" id="logoutBtn">Sign Out</button>
+        </div>
+
+        <!-- ── Overview ── -->
+        <div class="page-section" id="sec-overview">
+
+            <div class="greeting-card">
+                <div>
+                    <h2>Hi, <span id="greetName">there</span>! 👋</h2>
+                    <p id="greetSub">Loading your department summary…</p>
+                </div>
+                <div class="greeting-meta">
+                    <span class="greeting-badge" id="roleBadge">Staff</span>
+                    <span style="font-size:11px;color:#aaa;margin-top:4px" id="shiftInfo"></span>
+                    <span style="font-size:11px;color:#aaa;margin-top:2px" id="todayDate"></span>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <button class="quick-btn purple" onclick="showSection('appointments')">📅 Appointments</button>
+                <button class="quick-btn violet" onclick="showSection('billing')">💳 Billing Queue</button>
+                <button class="quick-btn navy"   onclick="showSection('profile')">👤 My Profile</button>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Upcoming Appointments</div>
+                    <div class="stat-value" id="statAppts">—</div>
+                    <div class="stat-sub">In your department</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Unpaid Bills</div>
+                    <div class="stat-value" id="statBills">—</div>
+                    <div class="stat-sub">Pending payment</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Department</div>
+                    <div class="stat-value" id="statDept" style="font-size:16px">—</div>
+                    <div class="stat-sub" id="statClinic">Clinic</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Shift</div>
+                    <div class="stat-value" id="statShift" style="font-size:16px">—</div>
+                    <div class="stat-sub">Today's hours</div>
+                </div>
+            </div>
+
+            <div class="sections-grid">
+                <div class="section-block">
+                    <div class="section-block-header">
+                        <div><h3>Upcoming Appointments</h3><p>Next appointments in your department</p></div>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Physician</th><th>Status</th></tr></thead>
+                        <tbody id="overviewApptBody"><tr><td colspan="5" class="table-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="section-block">
+                    <div class="section-block-header">
+                        <div><h3>Billing Queue</h3><p>Outstanding payments</p></div>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Patient</th><th>Amount</th><th>Status</th></tr></thead>
+                        <tbody id="overviewBillBody"><tr><td colspan="3" class="table-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ── Appointments ── -->
+        <div class="page-section hidden" id="sec-appointments">
+            <div class="section-block">
+                <div class="section-block-header">
+                    <div><h3>Department Appointments</h3><p>Upcoming appointments in your department</p></div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Date</th><th>Time</th><th>Patient</th><th>Physician</th><th>Status</th></tr>
+                    </thead>
+                    <tbody id="apptBody"><tr><td colspan="5" class="table-empty">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Billing ── -->
+        <div class="page-section hidden" id="sec-billing">
+            <div class="section-block">
+                <div class="section-block-header">
+                    <div><h3>Billing Queue</h3><p>Outstanding and recent bills</p></div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Bill #</th><th>Patient</th><th>Total</th><th>Tax</th><th>Method</th><th>Date Paid</th><th>Status</th></tr>
+                    </thead>
+                    <tbody id="billingBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Profile ── -->
+        <div class="page-section hidden" id="sec-profile">
+            <div class="section-block">
+                <div class="section-block-header"><div><h3>Staff Profile</h3></div></div>
+                <div style="padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:16px" id="profileGrid">
+                    <p class="loading-msg">Loading…</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="../scripts/portals/staff_dashboard.js"></script>
+</body>
+</html>

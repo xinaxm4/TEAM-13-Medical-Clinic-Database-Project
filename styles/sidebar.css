@@ -1,0 +1,235 @@
+/* ── Backdrop overlay ── */
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.sidebar-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* ── Drawer panel ── */
+.login-sidebar {
+    position: fixed;
+    top: 0;
+    right: -480px;
+    width: 440px;
+    height: 100vh;
+    background: white;
+    z-index: 999;
+    transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -6px 0 32px rgba(0, 0, 0, 0.18);
+    font-family: "Merriweather", serif;
+}
+.login-sidebar.open {
+    right: 0;
+}
+
+/* ── Sidebar header bar ── */
+.sidebar-header {
+    background: #1f2a6d;
+    padding: 22px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.sidebar-header h3 {
+    color: white;
+    font-size: 17px;
+    margin: 0;
+    font-weight: 700;
+}
+.sidebar-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 26px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s;
+}
+.sidebar-close:hover {
+    color: white;
+}
+
+/* ── Tabs ── */
+.sidebar-tabs {
+    display: flex;
+    border-bottom: 2px solid #e8eaf2;
+    flex-shrink: 0;
+}
+.sidebar-tab {
+    flex: 1;
+    padding: 15px 12px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    font-family: "Merriweather", serif;
+    font-size: 13px;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s, border-color 0.2s;
+}
+.sidebar-tab:hover {
+    color: #555;
+}
+.sidebar-tab.active[data-tab="patient"] {
+    color: #1f2a6d;
+    border-bottom-color: #6ea8fe;
+    font-weight: 700;
+}
+.sidebar-tab.active[data-tab="staff"] {
+    color: #1f6d45;
+    border-bottom-color: #1f6d45;
+    font-weight: 700;
+}
+
+/* ── Panel content ── */
+.sidebar-panel {
+    display: none;
+    flex-direction: column;
+    gap: 18px;
+    padding: 30px 28px 40px;
+    flex: 1;
+}
+.sidebar-panel.active {
+    display: flex;
+}
+
+/* ── Staff badge ── */
+.sidebar-staff-badge {
+    align-self: center;
+    background: #1f6d45;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+}
+
+.sidebar-panel-title {
+    font-size: 22px;
+    color: #1f2a6d;
+    text-align: center;
+    margin: 0;
+}
+.sidebar-panel-title.staff-title {
+    color: #1a4731;
+}
+
+.sidebar-subtitle {
+    font-size: 13px;
+    color: #777;
+    text-align: center;
+    margin-top: -10px;
+    font-weight: 300;
+}
+
+/* ── Form fields ── */
+.sidebar-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.sidebar-form-group label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.sidebar-form-group input {
+    padding: 11px 14px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: "Merriweather", serif;
+    outline: none;
+    transition: border-color 0.2s;
+    background: #fafafa;
+}
+.sidebar-form-group input:focus {
+    border-color: #6ea8fe;
+    background: white;
+}
+#sidebar-staff-panel .sidebar-form-group input:focus {
+    border-color: #3a9e6a;
+}
+
+/* ── Submit buttons ── */
+.sidebar-btn {
+    padding: 13px;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 15px;
+    font-family: "Merriweather", serif;
+    cursor: pointer;
+    font-weight: 700;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 4px;
+}
+.sidebar-btn:active {
+    transform: scale(0.98);
+}
+.sidebar-btn-patient {
+    background: #6ea8fe;
+}
+.sidebar-btn-patient:hover {
+    background: #4a90e2;
+}
+.sidebar-btn-staff {
+    background: #1f6d45;
+}
+.sidebar-btn-staff:hover {
+    background: #164f32;
+}
+
+/* ── Feedback messages ── */
+.sidebar-message {
+    font-size: 13px;
+    text-align: center;
+    min-height: 18px;
+}
+.sidebar-message.error  { color: #c0392b; }
+.sidebar-message.success { color: #1f6d45; }
+
+/* ── Footer notes ── */
+.sidebar-note {
+    font-size: 12px;
+    color: #999;
+    text-align: center;
+    font-weight: 300;
+    line-height: 1.7;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f0;
+}
+.sidebar-note a {
+    color: #1f2a6d;
+    font-weight: 700;
+    text-decoration: none;
+}
+.sidebar-note a:hover {
+    text-decoration: underline;
+}
+
+/* ── Divider ── */
+.sidebar-divider {
+    height: 1px;
+    background: #eee;
+    margin: 4px 0;
+}

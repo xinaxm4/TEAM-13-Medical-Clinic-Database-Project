@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap');
+
+*, html, body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Merriweather", serif;
+}
+
+header {
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 80px;
+}
+
+nav ul {
+    display: flex;
+    gap: 30px;
+    list-style: none;
+}
+
+nav a {
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+.logo {
+    color: white;
+}
+
+.hero {
+    height: 100vh;
+    background-image: url("../images/medical_homepage_image.jpg");
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 60, 40, 0.72);
+}
+
+.form-card {
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Green accent badge to distinguish from patient login */
+.staff-badge {
+    align-self: center;
+    background: #1f6d45;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: -4px;
+}
+
+.form-card h2 {
+    font-size: 24px;
+    color: #1a4731;
+    text-align: center;
+}
+
+.subtitle {
+    font-size: 13px;
+    color: #666;
+    text-align: center;
+    margin-top: -8px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #333;
+}
+
+.form-group input {
+    padding: 10px 14px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: "Merriweather", serif;
+    outline: none;
+}
+
+.form-group input:focus {
+    border-color: #3a9e6a;
+}
+
+button#btn {
+    margin-top: 4px;
+    padding: 12px;
+    background: #1f6d45;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 15px;
+    font-family: "Merriweather", serif;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+button#btn:hover {
+    background: #164f32;
+}
+
+#message {
+    font-size: 13px;
+    text-align: center;
+    color: #c0392b;
+    min-height: 18px;
+}
+
+.admin-note {
+    font-size: 12px;
+    text-align: center;
+    color: #888;
+    font-weight: 300;
+    line-height: 1.6;
+}
