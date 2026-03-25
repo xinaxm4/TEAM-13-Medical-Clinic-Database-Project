@@ -29,67 +29,42 @@
 </section>
 
 <section class="locations-section">
-  <div class="locations-grid">
-
-    <a href="chicago.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>Chicago, IL</h3>
-      <p class="card-address">225 N Michigan Ave<br>Chicago, IL 60601</p>
-      <p class="card-depts">Cardiology &bull; Neurology &bull; General Practice</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
-    <a href="dallas.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>Dallas, TX</h3>
-      <p class="card-address">3001 Knox St<br>Dallas, TX 75205</p>
-      <p class="card-depts">Orthopedics &bull; Pediatrics &bull; Internal Medicine</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
-    <a href="los_angeles.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>Los Angeles, CA</h3>
-      <p class="card-address">6200 Wilshire Blvd<br>Los Angeles, CA 90048</p>
-      <p class="card-depts">Dermatology &bull; Psychiatry &bull; Oncology</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
-    <a href="new_york.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>New York, NY</h3>
-      <p class="card-address">405 Lexington Ave<br>New York, NY 10174</p>
-      <p class="card-depts">Emergency Medicine &bull; Surgery &bull; OB/GYN</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
-    <a href="houston.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>Houston, TX</h3>
-      <p class="card-address">2900 Weslayan St<br>Houston, TX 77027</p>
-      <p class="card-depts">Cardiology &bull; Endocrinology &bull; Family Medicine</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
-    <a href="austin.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>Austin, TX</h3>
-      <p class="card-address">3824 Medical Pkwy<br>Austin, TX 78756</p>
-      <p class="card-depts">Neurology &bull; Dermatology &bull; Urgent Care</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
-    <a href="san_antonio.html" class="location-card">
-      <div class="card-icon">&#43;</div>
-      <h3>San Antonio, TX</h3>
-      <p class="card-address">4615 Medical Dr<br>San Antonio, TX 78229</p>
-      <p class="card-depts">Orthopedics &bull; Pulmonology &bull; OB/GYN</p>
-      <span class="card-link">View Clinic &rarr;</span>
-    </a>
-
+  <div class="locations-grid" id="locationsGrid">
+    <p style="text-align:center;color:#888;padding:40px;grid-column:1/-1">Loading locations&hellip;</p>
   </div>
 </section>
 
 <script src="../../scripts/sidebar.js" defer></script>
+<script>
+  fetch('/api/locations')
+    .then(function(r) { return r.json(); })
+    .then(function(clinics) {
+      var grid = document.getElementById('locationsGrid');
+
+      if (!clinics || clinics.length === 0) {
+        grid.innerHTML = '<p style="text-align:center;color:#888;padding:40px;grid-column:1/-1">No locations found.</p>';
+        return;
+      }
+
+      grid.innerHTML = clinics.map(function(c) {
+        var citySlug  = encodeURIComponent(c.city);
+        var address   = c.street_address ? c.street_address + '<br>' + c.city + ', ' + c.state + ' ' + (c.zip_code || '') : c.city + ', ' + c.state;
+        var depts     = c.departments || 'Multiple departments';
+
+        return '<a href="location_detail.html?city=' + citySlug + '" class="location-card">'
+          + '<div class="card-icon">&#43;</div>'
+          + '<h3>' + c.city + ', ' + c.state + '</h3>'
+          + '<p class="card-address">' + address + '</p>'
+          + '<p class="card-depts">' + depts.replace(/ · /g, ' &bull; ') + '</p>'
+          + '<span class="card-link">View Clinic &rarr;</span>'
+          + '</a>';
+      }).join('');
+    })
+    .catch(function(err) {
+      console.error('Locations load error:', err);
+      document.getElementById('locationsGrid').innerHTML =
+        '<p style="text-align:center;color:#c00;padding:40px;grid-column:1/-1">Could not load locations. Make sure the server is running.</p>';
+    });
+</script>
 </body>
 </html>
