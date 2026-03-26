@@ -2,13 +2,11 @@ const db = require("../db");
 
 /* ─────────────────────────────────────────────
    Patient Dashboard Data
-   GET /api/patient/dashboard?email=X
-   (users table has no patient_id col,
-    so we join via patient.email = users.username)
+   GET /api/patient/dashboard?user_id=X
 ───────────────────────────────────────────── */
 const getPatientDashboard = (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ message: "email is required" });
+  const { user_id } = req.query;
+  if (!user_id) return res.status(400).json({ message: "user_id is required" });
 
   const patientSql = `
     SELECT p.patient_id, p.first_name, p.last_name, p.date_of_birth,
@@ -21,9 +19,9 @@ const getPatientDashboard = (req, res) => {
     FROM patient p
     JOIN physician ph ON p.primary_physician_id = ph.physician_id
     JOIN insurance ins ON p.insurance_id = ins.insurance_id
-    WHERE p.email = ?`;
+    WHERE p.user_id = ?`;
 
-  db.query(patientSql, [email], (err, rows) => {
+  db.query(patientSql, [user_id], (err, rows) => {
     if (err) return res.status(500).json({ message: "Query failed" });
     if (rows.length === 0) return res.status(404).json({ message: "Patient record not found" });
 

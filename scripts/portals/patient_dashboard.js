@@ -60,11 +60,11 @@ function infoRow(label, value) {
 
 /* ── Load dashboard data ── */
 async function loadDashboard() {
-    const email = user.email || user.name;
-    if (!email) return;
+    const userId = user.id;
+    if (!userId) return;
 
     try {
-        const res  = await fetch(`/api/patient/dashboard?email=${encodeURIComponent(email)}`);
+        const res  = await fetch(`/api/patient/dashboard?user_id=${encodeURIComponent(userId)}`);
         const data = await res.json();
 
         if (!res.ok) {
