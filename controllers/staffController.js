@@ -92,7 +92,7 @@ const getPhysicianDashboard = (req, res) => {
         LIMIT 20`;
 
       const scheduleSql = `
-        SELECT ws.day_of_week, ws.start_time, ws.end_time,
+        SELECT ws.office_id, ws.day_of_week, ws.start_time, ws.end_time,
                o.street_address, o.city, o.state
         FROM work_schedule ws
         JOIN office o ON ws.office_id = o.office_id
@@ -205,20 +205,38 @@ const getStaffDashboard = (req, res) => {
 
 /* ─────────────────────────────────────────────
    All Physicians' Work Schedules
-   GET /api/staff/all-schedules
+   GET /api/staff/all-schedules?office_id=X
 ───────────────────────────────────────────── */
 const getAllSchedules = (req, res) => {
-  const sql = `
-    SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty,
-           ws.day_of_week, ws.start_time, ws.end_time,
-           o.city, o.state, o.street_address
-    FROM physician ph
-    LEFT JOIN work_schedule ws ON ph.physician_id = ws.physician_id
-    LEFT JOIN office o ON ws.office_id = o.office_id
-    ORDER BY ph.last_name,
-      FIELD(ws.day_of_week,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`;
+  const { office_id } = req.query;
 
-  db.query(sql, (err, rows) => {
+  let sql, params;
+  if (office_id) {
+    sql = `
+      SELECT p.physician_id, p.first_name, p.last_name, p.specialty,
+             ws.day_of_week, ws.start_time, ws.end_time,
+             o.city, o.state, o.street_address
+      FROM physician p
+      JOIN work_schedule ws ON p.physician_id = ws.physician_id
+      JOIN office o ON ws.office_id = o.office_id
+      WHERE ws.office_id = ?
+      ORDER BY p.last_name,
+        FIELD(ws.day_of_week,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`;
+    params = [office_id];
+  } else {
+    sql = `
+      SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty,
+             ws.day_of_week, ws.start_time, ws.end_time,
+             o.city, o.state, o.street_address
+      FROM physician ph
+      LEFT JOIN work_schedule ws ON ph.physician_id = ws.physician_id
+      LEFT JOIN office o ON ws.office_id = o.office_id
+      ORDER BY ph.last_name,
+        FIELD(ws.day_of_week,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`;
+    params = [];
+  }
+
+  db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ message: "Schedule query failed" });
 
     // Group by physician
@@ -249,4 +267,65 @@ const getAllSchedules = (req, res) => {
   });
 };
 
-module.exports = { loginStaff, getPhysicianDashboard, getStaffDashboard, getAllSchedules };
+/* ─────────────────────────────────────────────
+   Get Referrals for a Specialist Physician
+   GET /api/staff/physician/referrals?physician_id=X
+───────────────────────────────────────────── */
+const getPhysicianReferrals = (req, res) => {
+  const { physician_id } = req.query;
+  if (!physician_id) return res.status(400).json({ message: "physician_id is required" });
+
+  const sql = `
+    SELECT r.referral_id, r.date_issued, r.expiration_date, r.referral_reason,
+           p.first_name AS patient_first, p.last_name AS patient_last,
+           pp.first_name AS primary_first, pp.last_name AS primary_last,
+           pp.specialty AS primary_specialty,
+           rs.referral_status_name
+    FROM referral r
+    JOIN patient p ON r.patient_id = p.patient_id
+    JOIN physician pp ON r.primary_physician_id = pp.physician_id
+    JOIN referral_status rs ON r.referral_status_id = rs.referral_status_id
+    WHERE r.specialist_id = ?
+    ORDER BY r.date_issued DESC`;
+
+  db.query(sql, [physician_id], (err, rows) => {
+    if (err) return res.status(500).json({ message: "Referral query failed", error: err.message });
+    res.json(rows);
+  });
+};
+
+/* ─────────────────────────────────────────────
+   Update Referral Status (Accept / Reject)
+   PUT /api/staff/referral/:referral_id/status
+   Body: { status_name: 'Accepted' | 'Rejected' }
+───────────────────────────────────────────── */
+const updateReferralStatus = (req, res) => {
+  const { referral_id } = req.params;
+  const { status_name } = req.body;
+
+  if (!status_name) return res.status(400).json({ message: "status_name is required" });
+
+  db.query(
+    "SELECT referral_status_id FROM referral_status WHERE referral_status_name = ?",
+    [status_name],
+    (err, rows) => {
+      if (err || rows.length === 0) {
+        return res.status(400).json({ message: "Invalid status name: " + status_name });
+      }
+
+      const status_id = rows[0].referral_status_id;
+
+      db.query(
+        "UPDATE referral SET referral_status_id = ? WHERE referral_id = ?",
+        [status_id, referral_id],
+        (err2, result) => {
+          if (err2) return res.status(500).json({ message: "Update failed", error: err2.message });
+          if (result.affectedRows === 0) return res.status(404).json({ message: "Referral not found" });
+          res.json({ message: "Referral status updated", referral_id, status_name });
+        }
+      );
+    }
+  );
+};
+
+module.exports = { loginStaff, getPhysicianDashboard, getStaffDashboard, getAllSchedules, getPhysicianReferrals, updateReferralStatus };
