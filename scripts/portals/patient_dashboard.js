@@ -33,7 +33,10 @@ document.getElementById("todayDate").textContent = new Date().toLocaleDateString
 /* ── Helpers ── */
 function fmt(dateStr) {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
+    // Parse as local date to avoid UTC timezone shift (off-by-one-day bug)
+    const s = dateStr.toString().split("T")[0];
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
 }
 
 function timeFmt(t) {
@@ -157,16 +160,22 @@ async function loadDashboard() {
 
         /* ── Profile info ── */
         document.getElementById("profileInfo").innerHTML = `
-            ${infoRow("Full Name", `${patient.first_name} ${patient.last_name}`)}
+            ${infoRow("Full Name", `${patient.first_name || "—"} ${patient.last_name || ""}`)}
             ${infoRow("Date of Birth", fmt(patient.date_of_birth))}
             ${infoRow("Gender", patient.gender)}
             ${infoRow("Email", patient.email)}
             ${infoRow("Phone", patient.phone_number)}
-            ${infoRow("Address", `${patient.street_address || ""}, ${patient.city || ""}, ${patient.state || ""} ${patient.zip_code || ""}`)}`;
+            ${infoRow("Address", [patient.street_address, patient.city, patient.state, patient.zip_code].filter(Boolean).join(", ") || "—")}`;
 
         document.getElementById("emergencyInfo").innerHTML = `
             ${infoRow("Emergency Contact", patient.emergency_contact_name)}
             ${infoRow("Contact Phone", patient.emergency_contact_phone)}`;
+
+        /* ── Edit button ── */
+        const editWrap = document.getElementById("profileEditBtn");
+        if (editWrap) {
+            editWrap.innerHTML = `<button class="profile-edit-btn" onclick="openProfileModal()">Edit Personal Information</button>`;
+        }
 
     } catch (err) {
         console.error("Dashboard load error:", err);
@@ -300,8 +309,39 @@ function validateProfileForm() {
     return null;
 }
 
+/* ── Confirmation dialog (returns Promise<boolean>) ── */
+function showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById("confirmDialog");
+        if (existing) existing.remove();
+
+        const dialog = document.createElement("div");
+        dialog.id = "confirmDialog";
+        dialog.style.cssText = `
+            position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;
+            display:flex;align-items:center;justify-content:center;`;
+        dialog.innerHTML = `
+            <div style="background:white;border-radius:14px;padding:32px 28px;max-width:380px;width:90%;
+                        box-shadow:0 20px 60px rgba(0,0,0,0.2);font-family:inherit;">
+                <h4 style="margin:0 0 10px;color:#1f2a6d;font-size:15px;">${title}</h4>
+                <p style="margin:0 0 24px;color:#666;font-size:13px;line-height:1.6;">${message}</p>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button id="confirmNo" style="padding:9px 20px;border:1px solid #e0e0e0;background:none;
+                        border-radius:8px;cursor:pointer;font-size:13px;color:#888;font-family:inherit;">Cancel</button>
+                    <button id="confirmYes" style="padding:9px 22px;background:#1f2a6d;color:white;border:none;
+                        border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">Yes, save</button>
+                </div>
+            </div>`;
+        document.body.appendChild(dialog);
+
+        dialog.querySelector("#confirmYes").onclick = () => { dialog.remove(); resolve(true); };
+        dialog.querySelector("#confirmNo").onclick  = () => { dialog.remove(); resolve(false); };
+        dialog.onclick = (ev) => { if (ev.target === dialog) { dialog.remove(); resolve(false); } };
+    });
+}
+
 async function submitProfile(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const msg = document.getElementById("profileSaveMsg");
 
     const validationError = validateProfileForm();
@@ -310,6 +350,13 @@ async function submitProfile(e) {
         msg.textContent = validationError;
         return;
     }
+
+    // ── Confirmation popup ──
+    const confirmed = await showConfirmDialog(
+        "Save changes?",
+        "Are you sure you want to update your personal information?"
+    );
+    if (!confirmed) return;
 
     msg.className = "modal-save-msg";
     msg.textContent = "Saving…";

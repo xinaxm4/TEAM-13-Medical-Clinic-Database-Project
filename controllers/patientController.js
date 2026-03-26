@@ -8,6 +8,7 @@ const getPatientDashboard = (req, res) => {
   const { user_id } = req.query;
   if (!user_id) return res.status(400).json({ message: "user_id is required" });
 
+  // LEFT JOINs so patients without physician/insurance still load
   const patientSql = `
     SELECT p.patient_id, p.first_name, p.last_name, p.date_of_birth,
            p.phone_number, p.email, p.gender,
@@ -17,15 +18,29 @@ const getPatientDashboard = (req, res) => {
            ph.phone_number AS doc_phone,
            ins.provider_name, ins.policy_number, ins.coverage_percentage
     FROM patient p
-    JOIN physician ph ON p.primary_physician_id = ph.physician_id
-    JOIN insurance ins ON p.insurance_id = ins.insurance_id
+    LEFT JOIN physician ph ON p.primary_physician_id = ph.physician_id
+    LEFT JOIN insurance ins ON p.insurance_id = ins.insurance_id
     WHERE p.user_id = ?`;
 
   db.query(patientSql, [user_id], (err, rows) => {
     if (err) return res.status(500).json({ message: "Query failed" });
-    if (rows.length === 0) return res.status(404).json({ message: "Patient record not found" });
 
-    const patient = rows[0];
+    // New user — auto-create a blank patient row so profile can be filled in
+    if (rows.length === 0) {
+      const insertSql = `
+        INSERT INTO patient (user_id, first_name, last_name)
+        VALUES (?, '', '')`;
+      return db.query(insertSql, [user_id], (ie, ir) => {
+        if (ie) return res.status(500).json({ message: "Could not initialize patient record" });
+        // Return empty patient so dashboard renders with banner
+        return res.json({
+          patient: { patient_id: ir.insertId, first_name: "", last_name: "" },
+          appointments: [], history: [], billing: []
+        });
+      });
+    }
+
+    const patient    = rows[0];
     const patient_id = patient.patient_id;
 
     const appointmentsSql = `
@@ -59,11 +74,7 @@ const getPatientDashboard = (req, res) => {
 
     let data = { patient };
     let completed = 0;
-
-    function finish() {
-      completed++;
-      if (completed === 3) res.json(data);
-    }
+    function finish() { completed++; if (completed === 3) res.json(data); }
 
     db.query(appointmentsSql, [patient_id], (e, r) => { data.appointments = e ? [] : r; finish(); });
     db.query(historySQL,      [patient_id], (e, r) => { data.history      = e ? [] : r; finish(); });
@@ -74,9 +85,6 @@ const getPatientDashboard = (req, res) => {
 /* ─────────────────────────────────────────────
    Update Patient Profile
    PUT /api/patient/profile
-   Body: { user_id, first_name, last_name, date_of_birth, gender,
-           phone_number, email, street_address, city, state, zip_code,
-           emergency_contact_name, emergency_contact_phone }
 ───────────────────────────────────────────── */
 const updatePatientProfile = (req, res) => {
     const {
@@ -113,18 +121,18 @@ const updatePatientProfile = (req, res) => {
 
     const sql = `
         UPDATE patient SET
-            first_name              = COALESCE(?, first_name),
-            last_name               = COALESCE(?, last_name),
-            date_of_birth           = ?,
-            gender                  = ?,
-            phone_number            = ?,
-            email                   = ?,
-            street_address          = ?,
-            city                    = ?,
-            state                   = ?,
-            zip_code                = ?,
-            emergency_contact_name  = ?,
-            emergency_contact_phone = ?
+            first_name              = COALESCE(NULLIF(?, ''), first_name),
+            last_name               = COALESCE(NULLIF(?, ''), last_name),
+            date_of_birth           = COALESCE(?, date_of_birth),
+            gender                  = COALESCE(?, gender),
+            phone_number            = COALESCE(?, phone_number),
+            email                   = COALESCE(?, email),
+            street_address          = COALESCE(?, street_address),
+            city                    = COALESCE(?, city),
+            state                   = COALESCE(?, state),
+            zip_code                = COALESCE(?, zip_code),
+            emergency_contact_name  = COALESCE(?, emergency_contact_name),
+            emergency_contact_phone = COALESCE(?, emergency_contact_phone)
         WHERE user_id = ?`;
 
     db.query(sql, [
@@ -138,9 +146,6 @@ const updatePatientProfile = (req, res) => {
         if (err) {
             console.error("Profile update error:", err.message);
             return res.status(500).json({ message: "Could not update profile" });
-        }
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Patient record not found" });
         }
         res.json({ message: "Profile updated successfully" });
     });
