@@ -52,6 +52,123 @@
             <button class="logout-btn" id="logoutBtn">Sign Out</button>
         </div>
 
+        <!-- ── Profile Incomplete Banner ── -->
+        <div id="profileBanner" class="profile-banner hidden">
+            <div class="banner-left">
+                <div class="banner-icon">!</div>
+                <div>
+                    <div class="banner-title">Your profile is incomplete</div>
+                    <div class="banner-sub" id="bannerMissingList">Some information is missing from your record.</div>
+                </div>
+            </div>
+            <div class="banner-actions">
+                <button class="banner-btn-primary" onclick="openProfileModal()">Complete My Profile</button>
+                <button class="banner-btn-dismiss" onclick="document.getElementById('profileBanner').classList.add('hidden')">Dismiss</button>
+            </div>
+        </div>
+
+        <!-- ── Profile Modal ── -->
+        <div id="profileModal" class="modal-overlay hidden" onclick="closeModalOutside(event)">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <div>
+                        <h3>Complete Your Profile</h3>
+                        <p>Update your information below. Fields marked with <span style="color:#e05c5c">*</span> are important for your care.</p>
+                    </div>
+                    <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+                </div>
+
+                <form id="profileForm" onsubmit="submitProfile(event)">
+                    <div class="modal-section-label">Personal Information</div>
+                    <div class="modal-grid">
+                        <div class="modal-field">
+                            <label>First Name <span class="req">*</span></label>
+                            <input type="text" id="mf_first_name" placeholder="First name" required>
+                        </div>
+                        <div class="modal-field">
+                            <label>Last Name <span class="req">*</span></label>
+                            <input type="text" id="mf_last_name" placeholder="Last name" required>
+                        </div>
+                        <div class="modal-field">
+                            <label>Date of Birth</label>
+                            <input type="date" id="mf_dob">
+                        </div>
+                        <div class="modal-field">
+                            <label>Gender</label>
+                            <select id="mf_gender">
+                                <option value="">Select…</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Non-binary">Non-binary</option>
+                                <option value="Prefer not to say">Prefer not to say</option>
+                            </select>
+                        </div>
+                        <div class="modal-field">
+                            <label>Phone Number</label>
+                            <input type="tel" id="mf_phone" placeholder="(555) 000-0000">
+                        </div>
+                        <div class="modal-field">
+                            <label>Email Address</label>
+                            <input type="email" id="mf_email" placeholder="your@email.com">
+                        </div>
+                    </div>
+
+                    <div class="modal-section-label">Address</div>
+                    <div class="modal-grid">
+                        <div class="modal-field modal-field-full">
+                            <label>Street Address</label>
+                            <input type="text" id="mf_street" placeholder="123 Main St">
+                        </div>
+                        <div class="modal-field">
+                            <label>City</label>
+                            <input type="text" id="mf_city" placeholder="City">
+                        </div>
+                        <div class="modal-field">
+                            <label>State</label>
+                            <input type="text" id="mf_state" placeholder="TX" maxlength="2">
+                        </div>
+                        <div class="modal-field">
+                            <label>ZIP Code</label>
+                            <input type="text" id="mf_zip" placeholder="00000" maxlength="10">
+                        </div>
+                    </div>
+
+                    <div class="modal-section-label">Emergency Contact</div>
+                    <div class="modal-grid">
+                        <div class="modal-field">
+                            <label>Contact Name</label>
+                            <input type="text" id="mf_ec_name" placeholder="Full name">
+                        </div>
+                        <div class="modal-field">
+                            <label>Contact Phone</label>
+                            <input type="tel" id="mf_ec_phone" placeholder="(555) 000-0000">
+                        </div>
+                    </div>
+
+                    <div id="profileSaveMsg" class="modal-save-msg hidden"></div>
+
+                    <div class="modal-footer">
+                        <button type="submit" class="modal-save-btn">Save Changes</button>
+                    </div>
+                </form>
+
+                <!-- Call instead -->
+                <div class="modal-call-box">
+                    <div class="call-title">Prefer to call us instead?</div>
+                    <p class="call-sub">Our staff can update your information over the phone during business hours (Mon–Fri, 8 AM – 5 PM).</p>
+                    <div class="call-locations">
+                        <div class="call-loc"><span class="call-city">Dallas, TX</span><a href="tel:+12145550200">(214) 555-0200</a></div>
+                        <div class="call-loc"><span class="call-city">Houston, TX</span><a href="tel:+17135550200">(713) 555-0200</a></div>
+                        <div class="call-loc"><span class="call-city">Austin, TX</span><a href="tel:+15125550200">(512) 555-0200</a></div>
+                        <div class="call-loc"><span class="call-city">San Antonio, TX</span><a href="tel:+12105550200">(210) 555-0200</a></div>
+                        <div class="call-loc"><span class="call-city">Chicago, IL</span><a href="tel:+13125550200">(312) 555-0200</a></div>
+                        <div class="call-loc"><span class="call-city">Los Angeles, CA</span><a href="tel:+12135550200">(213) 555-0200</a></div>
+                        <div class="call-loc"><span class="call-city">New York, NY</span><a href="tel:+12125550200">(212) 555-0200</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Overview Section ── -->
         <div class="page-section" id="sec-overview">
 

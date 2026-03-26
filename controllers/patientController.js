@@ -71,4 +71,55 @@ const getPatientDashboard = (req, res) => {
   });
 };
 
-module.exports = { getPatientDashboard };
+/* ─────────────────────────────────────────────
+   Update Patient Profile
+   PUT /api/patient/profile
+   Body: { user_id, first_name, last_name, date_of_birth, gender,
+           phone_number, email, street_address, city, state, zip_code,
+           emergency_contact_name, emergency_contact_phone }
+───────────────────────────────────────────── */
+const updatePatientProfile = (req, res) => {
+    const {
+        user_id, first_name, last_name, date_of_birth, gender,
+        phone_number, email, street_address, city, state, zip_code,
+        emergency_contact_name, emergency_contact_phone
+    } = req.body;
+
+    if (!user_id) return res.status(400).json({ message: "user_id is required" });
+
+    const sql = `
+        UPDATE patient SET
+            first_name              = COALESCE(?, first_name),
+            last_name               = COALESCE(?, last_name),
+            date_of_birth           = ?,
+            gender                  = ?,
+            phone_number            = ?,
+            email                   = ?,
+            street_address          = ?,
+            city                    = ?,
+            state                   = ?,
+            zip_code                = ?,
+            emergency_contact_name  = ?,
+            emergency_contact_phone = ?
+        WHERE user_id = ?`;
+
+    db.query(sql, [
+        first_name || null, last_name || null,
+        date_of_birth || null, gender || null,
+        phone_number || null, email || null,
+        street_address || null, city || null, state || null, zip_code || null,
+        emergency_contact_name || null, emergency_contact_phone || null,
+        user_id
+    ], (err, result) => {
+        if (err) {
+            console.error("Profile update error:", err.message);
+            return res.status(500).json({ message: "Could not update profile" });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Patient record not found" });
+        }
+        res.json({ message: "Profile updated successfully" });
+    });
+};
+
+module.exports = { getPatientDashboard, updatePatientProfile };

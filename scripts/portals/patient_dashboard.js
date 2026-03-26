@@ -151,6 +151,10 @@ async function loadDashboard() {
             </tr>`).join("")
             : `<tr><td colspan="7" class="table-empty">No billing records found</td></tr>`;
 
+        /* ── Profile completeness banner ── */
+        checkProfileCompleteness(patient);
+        prefillModal(patient);
+
         /* ── Profile info ── */
         document.getElementById("profileInfo").innerHTML = `
             ${infoRow("Full Name", `${patient.first_name} ${patient.last_name}`)}
@@ -167,6 +171,101 @@ async function loadDashboard() {
     } catch (err) {
         console.error("Dashboard load error:", err);
         document.getElementById("greetSub").textContent = "Could not connect to server.";
+    }
+}
+
+/* ── Profile completeness check ── */
+let _patientId = null;
+
+function checkProfileCompleteness(patient) {
+    _patientId = patient.patient_id;
+
+    const missing = [];
+    if (!patient.date_of_birth)           missing.push("date of birth");
+    if (!patient.phone_number)            missing.push("phone number");
+    if (!patient.email)                   missing.push("email");
+    if (!patient.gender)                  missing.push("gender");
+    if (!patient.street_address)          missing.push("address");
+    if (!patient.emergency_contact_name)  missing.push("emergency contact name");
+    if (!patient.emergency_contact_phone) missing.push("emergency contact phone");
+
+    if (missing.length === 0) return;
+
+    const banner = document.getElementById("profileBanner");
+    const list   = document.getElementById("bannerMissingList");
+    list.textContent = `Missing: ${missing.join(", ")}.`;
+    banner.classList.remove("hidden");
+}
+
+function openProfileModal() {
+    document.getElementById("profileModal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+}
+
+function closeProfileModal() {
+    document.getElementById("profileModal").classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+function closeModalOutside(e) {
+    if (e.target === document.getElementById("profileModal")) closeProfileModal();
+}
+
+function prefillModal(patient) {
+    document.getElementById("mf_first_name").value = patient.first_name || "";
+    document.getElementById("mf_last_name").value  = patient.last_name  || "";
+    document.getElementById("mf_dob").value        = patient.date_of_birth ? patient.date_of_birth.split("T")[0] : "";
+    document.getElementById("mf_gender").value     = patient.gender || "";
+    document.getElementById("mf_phone").value      = patient.phone_number || "";
+    document.getElementById("mf_email").value      = patient.email || "";
+    document.getElementById("mf_street").value     = patient.street_address || "";
+    document.getElementById("mf_city").value       = patient.city || "";
+    document.getElementById("mf_state").value      = patient.state || "";
+    document.getElementById("mf_zip").value        = patient.zip_code || "";
+    document.getElementById("mf_ec_name").value    = patient.emergency_contact_name  || "";
+    document.getElementById("mf_ec_phone").value   = patient.emergency_contact_phone || "";
+}
+
+async function submitProfile(e) {
+    e.preventDefault();
+    const msg = document.getElementById("profileSaveMsg");
+    msg.className = "modal-save-msg";
+    msg.textContent = "Saving…";
+
+    const body = {
+        user_id:                user.id,
+        first_name:             document.getElementById("mf_first_name").value.trim(),
+        last_name:              document.getElementById("mf_last_name").value.trim(),
+        date_of_birth:          document.getElementById("mf_dob").value       || null,
+        gender:                 document.getElementById("mf_gender").value    || null,
+        phone_number:           document.getElementById("mf_phone").value.trim()   || null,
+        email:                  document.getElementById("mf_email").value.trim()   || null,
+        street_address:         document.getElementById("mf_street").value.trim()  || null,
+        city:                   document.getElementById("mf_city").value.trim()    || null,
+        state:                  document.getElementById("mf_state").value.trim()   || null,
+        zip_code:               document.getElementById("mf_zip").value.trim()     || null,
+        emergency_contact_name: document.getElementById("mf_ec_name").value.trim()  || null,
+        emergency_contact_phone:document.getElementById("mf_ec_phone").value.trim() || null,
+    };
+
+    try {
+        const r = await fetch("/api/patient/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "Save failed");
+
+        msg.className = "modal-save-msg success";
+        msg.textContent = "Profile updated successfully!";
+        setTimeout(() => {
+            closeProfileModal();
+            loadDashboard(); // refresh dashboard with new data
+        }, 1200);
+    } catch (err) {
+        msg.className = "modal-save-msg error";
+        msg.textContent = err.message || "Could not save. Please try again.";
     }
 }
 
