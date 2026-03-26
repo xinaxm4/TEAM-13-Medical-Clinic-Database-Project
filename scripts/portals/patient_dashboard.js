@@ -76,7 +76,7 @@ async function loadDashboard() {
             return;
         }
 
-        const { patient, appointments, history, billing } = data;
+        const { patient, appointments, history, billing, referrals } = data;
 
         /* ── Greeting & sidebar ── */
         const firstName = patient.first_name || "";
@@ -175,6 +175,33 @@ async function loadDashboard() {
         const editWrap = document.getElementById("profileEditBtn");
         if (editWrap) {
             editWrap.innerHTML = `<button class="profile-edit-btn" onclick="openProfileModal()">Edit Personal Information</button>`;
+        }
+
+        /* ── Referrals ── */
+        const refList = document.getElementById("referralsList");
+        if (refList) {
+            if (!referrals || referrals.length === 0) {
+                refList.innerHTML = `<p class="table-empty">No referrals on record.</p>`;
+            } else {
+                const statusColor = { Pending:"#f59e0b", Accepted:"#10b981", Rejected:"#ef4444", Expired:"#9ca3af" };
+                refList.innerHTML = referrals.map(r => `
+                    <div class="referral-card">
+                        <div class="referral-card-header">
+                            <div>
+                                <div class="referral-specialist">Dr. ${r.spec_first} ${r.spec_last}</div>
+                                <div class="referral-specialty">${r.spec_specialty}</div>
+                            </div>
+                            <span class="referral-status-badge" style="background:${statusColor[r.status_name] || '#9ca3af'}22;color:${statusColor[r.status_name] || '#9ca3af'};border:1px solid ${statusColor[r.status_name] || '#9ca3af'}44">
+                                ${r.status_name}
+                            </span>
+                        </div>
+                        <div class="referral-reason">"${r.referral_reason}"</div>
+                        <div class="referral-meta">
+                            <span>Referred by Dr. ${r.ref_first} ${r.ref_last} (${r.ref_specialty})</span>
+                            <span>Issued ${fmt(r.date_issued)} &nbsp;·&nbsp; Expires ${fmt(r.expiration_date)}</span>
+                        </div>
+                    </div>`).join("");
+            }
         }
 
     } catch (err) {

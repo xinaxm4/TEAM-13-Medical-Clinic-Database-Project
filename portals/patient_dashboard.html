@@ -31,6 +31,7 @@
             <button class="nav-item" onclick="showSection('appointments')">My Appointments</button>
             <button class="nav-item" onclick="showSection('history')">Medical History</button>
             <button class="nav-item" onclick="showSection('billing')">Billing</button>
+            <button class="nav-item" onclick="showSection('referrals')">My Referrals</button>
             <div class="nav-section-label">Account</div>
             <button class="nav-item" onclick="showSection('profile')">My Profile</button>
         </nav>
@@ -299,6 +300,21 @@
                     <div style="padding:20px;display:flex;flex-direction:column;gap:12px" id="emergencyInfo">
                         <p class="table-empty">Loading…</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Referrals Section ── -->
+        <div class="page-section hidden" id="sec-referrals">
+            <div class="section-block">
+                <div class="section-block-header">
+                    <div>
+                        <h3>My Referrals</h3>
+                        <p class="section-block-sub">Specialist referrals issued by your primary physician.</p>
+                    </div>
+                </div>
+                <div id="referralsList" style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+                    <p class="table-empty">Loading…</p>
                 </div>
             </div>
         </div>

@@ -72,13 +72,26 @@ const getPatientDashboard = (req, res) => {
       ORDER BY b.bill_id DESC
       LIMIT 10`;
 
+    const referralSql = `
+      SELECT r.referral_id, r.date_issued, r.expiration_date, r.referral_reason,
+             rs.status_name,
+             ph1.first_name AS ref_first, ph1.last_name AS ref_last, ph1.specialty AS ref_specialty,
+             ph2.first_name AS spec_first, ph2.last_name AS spec_last, ph2.specialty AS spec_specialty
+      FROM referral r
+      JOIN referral_status rs ON r.referral_status_id = rs.referral_status_id
+      JOIN physician ph1 ON r.primary_physician_id = ph1.physician_id
+      JOIN physician ph2 ON r.specialist_id = ph2.physician_id
+      WHERE r.patient_id = ?
+      ORDER BY r.date_issued DESC`;
+
     let data = { patient };
     let completed = 0;
-    function finish() { completed++; if (completed === 3) res.json(data); }
+    function finish() { completed++; if (completed === 4) res.json(data); }
 
     db.query(appointmentsSql, [patient_id], (e, r) => { data.appointments = e ? [] : r; finish(); });
     db.query(historySQL,      [patient_id], (e, r) => { data.history      = e ? [] : r; finish(); });
     db.query(billingSql,      [patient_id], (e, r) => { data.billing      = e ? [] : r; finish(); });
+    db.query(referralSql,     [patient_id], (e, r) => { data.referrals    = e ? [] : r; finish(); });
   });
 };
 
