@@ -220,9 +220,32 @@ function closeModalOutside(e) {
     if (e.target === document.getElementById("profileModal")) closeProfileModal();
 }
 
-// ESC key closes modal
+// Keyboard shortcuts for modal
 document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeProfileModal();
+    const modal = document.getElementById("profileModal");
+    const modalOpen = modal && !modal.classList.contains("hidden");
+
+    if (e.key === "Escape" && modalOpen) {
+        closeProfileModal();
+    }
+
+    // Enter anywhere inside the modal submits the form (unless already on a button)
+    if (e.key === "Enter" && modalOpen) {
+        const tag = document.activeElement?.tagName;
+        // Let textarea newlines and button clicks work naturally
+        if (tag === "TEXTAREA") return;
+        // If focused on "Do this later" button, click it (dismiss)
+        if (document.activeElement?.classList.contains("modal-cancel-btn")) {
+            e.preventDefault();
+            closeProfileModal();
+            return;
+        }
+        // If focused on Save or anywhere else in modal, submit
+        if (tag !== "SELECT") {
+            e.preventDefault();
+            document.getElementById("profileForm")?.requestSubmit();
+        }
+    }
 });
 
 function prefillModal(patient) {
