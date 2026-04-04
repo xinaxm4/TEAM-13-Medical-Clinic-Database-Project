@@ -216,5 +216,20 @@ CREATE TABLE billing (
     FOREIGN KEY (insurance_id) REFERENCES insurance(insurance_id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    physician_id INT NULL,
+    staff_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (physician_id) REFERENCES physician(physician_id)
+        ON DELETE SET NULL,
+    FOREIGN KEY (staff_id) REFERENCES staff(staff_id)
+        ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 SELECT DATABASE();
 
