@@ -3,7 +3,7 @@
 <head>
   <title>Locations - Palantir Clinic</title>
   <link rel="stylesheet" href="/client/styles/pages/locations.css">
-  <link rel="stylesheet" href="/styles/sidebar.css">
+  <link rel="stylesheet" href="/client/styles/pages/sidebar.css">
 </head>
 
 <body>
@@ -34,7 +34,7 @@
   </div>
 </section>
 
-<script src="/scripts/sidebar.js" defer></script>
+<script src="/client/scripts/pages/sidebar.js" defer></script>
 <script>
   fetch('/api/locations')
     .then(function(r) { return r.json(); })
