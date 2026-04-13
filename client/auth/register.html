@@ -60,6 +60,15 @@
             <div class="form-group">
                 <label>Date of Birth</label>
                 <input type="date" id="DOB" required>
+                <script>
+                    (function(){
+                        const d = document.getElementById("DOB");
+                        const today = new Date().toISOString().split("T")[0];
+                        const min   = new Date(); min.setFullYear(min.getFullYear()-130);
+                        d.max = today;
+                        d.min = min.toISOString().split("T")[0];
+                    })();
+                </script>
             </div>
         </div>
 

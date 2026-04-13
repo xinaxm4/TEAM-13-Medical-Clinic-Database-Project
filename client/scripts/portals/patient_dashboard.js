@@ -471,7 +471,26 @@ document.addEventListener("keydown", (e) => {
 function prefillModal(patient) {
     document.getElementById("mf_first_name").value = patient.first_name || "";
     document.getElementById("mf_last_name").value  = patient.last_name  || "";
-    document.getElementById("mf_dob").value        = patient.date_of_birth ? patient.date_of_birth.split("T")[0] : "";
+
+    // ── DOB: lock if already set (mirrors real EHR behaviour) ──
+    const dobField = document.getElementById("mf_dob");
+    const dobNote  = document.getElementById("dob_note");
+    const today    = new Date().toISOString().split("T")[0];
+    const minDate  = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 130);
+
+    if (patient.date_of_birth) {
+        dobField.value    = patient.date_of_birth.split("T")[0];
+        dobField.readOnly = true;
+        dobField.classList.add("dob-locked");
+        dobNote.style.display = "block";
+    } else {
+        dobField.readOnly = false;
+        dobField.classList.remove("dob-locked");
+        dobField.max      = today;
+        dobField.min      = minDate.toISOString().split("T")[0];
+        dobNote.style.display = "none";
+    }
     document.getElementById("mf_gender").value     = patient.gender || "";
     document.getElementById("mf_phone").value      = patient.phone_number || "";
     document.getElementById("mf_email").value      = patient.email || "";
@@ -522,7 +541,8 @@ function validateProfileForm() {
     if (!emailRe.test(email))     return "Please enter a valid email address (e.g. name@email.com).";
     if (zip && !zipRe.test(zip))  return "ZIP code must be 5 digits (e.g. 77450).";
     if (state && !stateRe.test(state)) return "State must be a 2-letter code (e.g. TX).";
-    if (new Date(dob) > new Date())    return "Date of birth cannot be in the future.";
+    const ageYears = (new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000);
+    if (new Date(dob) > new Date() || ageYears < 18 || ageYears > 130) return "Please enter a valid date of birth.";
     return null;
 }
 

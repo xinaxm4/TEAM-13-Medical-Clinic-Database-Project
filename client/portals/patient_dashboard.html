@@ -24,15 +24,17 @@
         html[data-theme="dark"] .sidebar-logo .clinic-name { color: #7ba4ff; }
 
         /* Settings panel */
-        .settings-tab { background:none; border:none; border-bottom:2px solid transparent; padding:10px 20px; font-size:13px; color:#888; cursor:pointer; font-family:inherit; font-weight:600; transition:color 0.15s,border-color 0.15s; }
+        .settings-tab { background:none; border:none; outline:none; border-bottom:2px solid transparent; padding:10px 20px; font-size:13px; color:#888; cursor:pointer; font-family:inherit; font-weight:600; transition:color 0.15s,border-color 0.15s; }
         .settings-tab.active { color:#1f2a6d; border-bottom-color:#6ea8fe; }
-        .settings-tab-content { }
         .settings-tab-content.hidden { display:none; }
         .settings-row { display:flex; align-items:center; justify-content:space-between; padding:18px 0; border-bottom:1px solid #f0f2f8; }
         .settings-row:last-child { border-bottom:none; }
         .settings-row-label { font-size:14px; font-weight:600; color:#333; margin-bottom:3px; }
         .settings-row-sub { font-size:12px; color:#aaa; }
-        .theme-btn { padding:8px 18px; border:1px solid #e0e4f0; border-radius:8px; background:white; font-size:13px; cursor:pointer; font-family:inherit; color:#555; transition:all 0.15s; }
+        .theme-btn { padding:8px 18px; border:1px solid #e0e4f0; border-radius:8px; background:white; font-size:13px; cursor:pointer; outline:none; font-family:inherit; color:#555; transition:all 0.15s; }
+        .theme-btn.active { background:#1f2a6d; color:white; border-color:#1f2a6d; }
+        .dob-locked { background:#f8f9ff; color:#999; cursor:not-allowed; border-color:#e8ecf5; }
+        .dob-locked-note { font-size:11px; color:#aaa; margin-top:4px; }
         .theme-btn.active { background:#1f2a6d; color:white; border-color:#1f2a6d; }
     </style>
     <script>if(localStorage.getItem("theme")==="dark")document.documentElement.setAttribute("data-theme","dark");</script>
@@ -74,7 +76,6 @@
         <div class="topbar">
             <div class="topbar-title">Audit Trail Health &rsaquo; <span id="currentSection">Overview</span></div>
             <div class="topbar-right">
-                <button id="darkModeToggle" class="dark-mode-toggle">Dark Mode</button>
                 <button class="logout-btn" id="logoutBtn">Sign Out</button>
             </div>
         </div>
@@ -119,6 +120,7 @@
                         <div class="modal-field">
                             <label>Date of Birth</label>
                             <input type="date" id="mf_dob">
+                            <div class="dob-locked-note" id="dob_note" style="display:none">Date of birth cannot be changed after it has been set. Contact your clinic to correct an error.</div>
                         </div>
                         <div class="modal-field">
                             <label>Gender</label>

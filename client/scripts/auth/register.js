@@ -60,19 +60,14 @@ registerButton.addEventListener("click", async function (event) {
     // ── Age validation: required, 18+, no future dates ──
     if (!date_of_birth) {
         message.style.color = "#c0392b";
-        message.textContent = "Date of birth is required.";
+        message.textContent = "Please enter a valid date of birth.";
         return;
     }
     const dob = new Date(date_of_birth);
-    if (dob > new Date()) {
-        message.style.color = "#c0392b";
-        message.textContent = "Date of birth cannot be in the future.";
-        return;
-    }
     const ageYears = (new Date() - dob) / (365.25 * 24 * 60 * 60 * 1000);
-    if (ageYears < 18) {
+    if (dob > new Date() || ageYears < 18 || ageYears > 130) {
         message.style.color = "#c0392b";
-        message.textContent = "You must be 18 or older to register.";
+        message.textContent = "Please enter a valid date of birth.";
         return;
     }
 
