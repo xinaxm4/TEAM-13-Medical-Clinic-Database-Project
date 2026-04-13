@@ -1,5 +1,5 @@
 // ============================================================
-//  Palantir Clinic — Database Backup Script
+//  Audit Trail Health — Database Backup Script
 //  Usage: npm run backup
 //  Creates a timestamped .sql dump in database/backups/
 // ============================================================

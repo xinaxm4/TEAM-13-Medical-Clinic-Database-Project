@@ -1,5 +1,5 @@
 -- ============================================================
---  Palantir Clinic — Seed Data (Trimmed & Clean)
+--  Audit Trail Health — Seed Data (Trimmed & Clean)
 --  Passwords meet strength requirements: 8+ chars, uppercase,
 --  number, special character — all pre-hashed with bcrypt.
 --
@@ -37,9 +37,9 @@ INSERT IGNORE INTO insurance (insurance_id, provider_name, policy_number, covera
 -- ─── Clinics (3 Texas locations) ────────────────────────────
 
 INSERT IGNORE INTO clinic (clinic_id, clinic_name, phone_number, street_address, city, state, zip_code) VALUES
-  (1, 'Palantir Clinic Dallas',  '(214) 555-0200', '3001 Knox St Suite 200',     'Dallas',  'TX', '75205'),
-  (2, 'Palantir Clinic Houston', '(713) 555-0200', '2900 Weslayan St Suite 300', 'Houston', 'TX', '77027'),
-  (3, 'Palantir Clinic Austin',  '(512) 555-0200', '3824 Medical Pkwy',          'Austin',  'TX', '78756');
+  (1, 'Audit Trail Health Dallas',  '(214) 555-0200', '3001 Knox St Suite 200',     'Dallas',  'TX', '75205'),
+  (2, 'Audit Trail Health Houston', '(713) 555-0200', '2900 Weslayan St Suite 300', 'Houston', 'TX', '77027'),
+  (3, 'Audit Trail Health Austin',  '(512) 555-0200', '3824 Medical Pkwy',          'Austin',  'TX', '78756');
 
 -- ─── Offices (one per clinic) ───────────────────────────────
 

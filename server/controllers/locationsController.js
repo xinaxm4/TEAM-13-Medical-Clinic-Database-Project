@@ -124,4 +124,22 @@ const getSearchData = (req, res) => {
   db.query(specialtiesSql, (e, r) => { data.specialties = e ? [] : r; finish(); });
 };
 
-module.exports = { getLocations, getLocationDetail, getSearchData };
+/* ─────────────────────────────────────────────
+   About Page Stats
+   GET /api/locations/stats
+   Returns live counts for the about page
+───────────────────────────────────────────── */
+const getStats = (req, res) => {
+  const sql = `
+    SELECT
+      (SELECT COUNT(DISTINCT city) FROM clinic)                              AS city_count,
+      (SELECT COUNT(*)             FROM physician)                           AS physician_count,
+      (SELECT COUNT(DISTINCT specialty) FROM physician WHERE specialty IS NOT NULL AND specialty != '') AS specialty_count`;
+
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: "Failed to load stats" });
+    res.json(results[0]);
+  });
+};
+
+module.exports = { getLocations, getLocationDetail, getSearchData, getStats };

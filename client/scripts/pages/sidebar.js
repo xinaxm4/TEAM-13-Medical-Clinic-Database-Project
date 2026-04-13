@@ -6,7 +6,7 @@
     <div id="login-sidebar" class="login-sidebar" role="dialog" aria-modal="true" aria-label="Login">
 
         <div class="sidebar-header">
-            <h3>Palantir Clinic</h3>
+            <h3>Audit Trail Health</h3>
             <button class="sidebar-close" id="sidebar-close-btn" aria-label="Close">&times;</button>
         </div>
 
@@ -35,7 +35,7 @@
 
             <p class="sidebar-note">
                 Don't have an account?
-                <a href="/auth/register.html">Create one here</a>
+                <a href="/client/auth/register.html">Create one here</a>
             </p>
         </div>
 
@@ -150,7 +150,7 @@
                     msgEl.className = 'sidebar-message success';
                     msgEl.textContent = 'Login successful! Redirecting…';
                     localStorage.setItem('patientUser', JSON.stringify(data.user));
-                    setTimeout(() => { window.location.href = '/portals/patient_dashboard.html'; }, 1000);
+                    setTimeout(() => { window.location.href = '/client/portals/patient_dashboard.html'; }, 1000);
                 } else {
                     msgEl.className = 'sidebar-message error';
                     msgEl.textContent = data.message || 'Invalid email or password.';
@@ -189,8 +189,8 @@
                     msgEl.textContent = 'Login successful! Redirecting…';
                     localStorage.setItem('clinicUser', JSON.stringify(data.user));
                     const dest = data.user.role === 'physician'
-                        ? '/portals/physician_dashboard.html'
-                        : '/portals/staff_dashboard.html';
+                        ? '/client/portals/physician_dashboard.html'
+                        : '/client/portals/staff_dashboard.html';
                     setTimeout(() => { window.location.href = dest; }, 1000);
                 } else {
                     msgEl.className = 'sidebar-message error';

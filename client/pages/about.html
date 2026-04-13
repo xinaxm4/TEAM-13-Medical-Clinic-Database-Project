@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>About - Palantir Clinic</title>
+    <title>About - Audit Trail Health</title>
     <link rel="stylesheet" href="/client/styles/pages/about.css">
+    <link rel="stylesheet" href="/client/styles/pages/sidebar.css">
 </head>
 
 <body>
 
 <header>
     <nav>
-        <h2 class="logo">Palantir Clinic</h2>
+        <h2 class="logo">Audit Trail Health</h2>
         <ul>
             <li><a href="/">Home</a></li>
             <li><a href="/client/pages/locations/locations.html">Locations</a></li>
-            <li><a href="/client/auth/patient_login.html">Patient Login</a></li>
-            <li><a href="/client/auth/staff_login.html">Staff Portal</a></li>
+            <li><a href="#" onclick="openSidebar('patient'); return false;">Patient Login</a></li>
+            <li><a href="#" onclick="openSidebar('staff'); return false;">Staff Portal</a></li>
         </ul>
     </nav>
 </header>
@@ -23,8 +24,8 @@
 <section class="hero">
     <div class="hero-text">
         <p class="hero-eyebrow">Who We Are</p>
-        <h1>Palantir Clinic</h1>
-        <p class="hero-sub">Comprehensive, compassionate care across seven cities.</p>
+        <h1>Audit Trail Health</h1>
+        <p class="hero-sub">Comprehensive, compassionate care across Texas.</p>
         <a href="/client/pages/locations/locations.html" class="hero-btn">Find a Location</a>
     </div>
 </section>
@@ -35,20 +36,20 @@
         <div class="about-text">
             <span class="section-eyebrow">Our Mission</span>
             <h2>Medicine centered on people, not paperwork.</h2>
-            <p>Palantir Clinic was founded on a simple belief: every patient deserves unhurried, expert attention from a physician who knows them. We have built a network of specialists, primary care doctors, and support staff who share that belief — and the systems to back it up.</p>
+            <p>Audit Trail Health was founded on a simple belief: every patient deserves unhurried, expert attention from a physician who knows them. We have built a network of specialists, primary care doctors, and support staff who share that belief — and the systems to back it up.</p>
             <p>From a routine check-up to a complex referral pathway, our integrated records and scheduling ensure nothing falls through the cracks. Your health history, billing, and care team are all in one place.</p>
         </div>
         <div class="mission-stats">
             <div class="stat-pill">
-                <span class="stat-num">7</span>
+                <span class="stat-num" id="stat-cities">—</span>
                 <span class="stat-desc">Cities</span>
             </div>
             <div class="stat-pill">
-                <span class="stat-num">16+</span>
+                <span class="stat-num" id="stat-specialties">—</span>
                 <span class="stat-desc">Specialties</span>
             </div>
             <div class="stat-pill">
-                <span class="stat-num">20+</span>
+                <span class="stat-num" id="stat-physicians">—</span>
                 <span class="stat-desc">Physicians</span>
             </div>
             <div class="stat-pill">
@@ -168,16 +169,10 @@
 <section class="about-section locations-banner">
     <div class="about-container">
         <span class="section-eyebrow">Where We Are</span>
-        <h2>Seven locations, one standard of care.</h2>
-        <p class="section-sub">Palantir Clinic operates across Texas, Illinois, California, and New York — with every location sharing the same electronic health records, referral network, and patient portal.</p>
-        <div class="locations-row">
-            <div class="loc-chip">Dallas, TX</div>
-            <div class="loc-chip">Houston, TX</div>
-            <div class="loc-chip">Austin, TX</div>
-            <div class="loc-chip">San Antonio, TX</div>
-            <div class="loc-chip">Chicago, IL</div>
-            <div class="loc-chip">Los Angeles, CA</div>
-            <div class="loc-chip">New York, NY</div>
+        <h2>Every location, one standard of care.</h2>
+        <p class="section-sub">Audit Trail Health operates across Texas — with every location sharing the same electronic health records, referral network, and patient portal.</p>
+        <div class="locations-row" id="locations-chips">
+            <div class="loc-chip">Loading…</div>
         </div>
         <a href="/client/pages/locations/locations.html" class="about-link-btn">View All Locations</a>
     </div>
@@ -189,7 +184,7 @@
         <h2>Ready to get started?</h2>
         <p>Create a patient account to book appointments, track your health history, and stay connected with your care team.</p>
         <div class="cta-btns">
-            <a href="/client/auth/patient_login.html" class="cta-btn primary">Patient Login</a>
+            <a href="#" onclick="openSidebar('patient'); return false;" class="cta-btn primary">Patient Login</a>
             <a href="/client/auth/register.html" class="cta-btn secondary">Create Account</a>
         </div>
     </div>
@@ -197,10 +192,56 @@
 
 <footer class="site-footer">
     <div class="about-container footer-inner">
-        <span class="footer-logo">Palantir Clinic</span>
-        <span class="footer-copy">&copy; 2026 Palantir Clinic. All rights reserved.</span>
+        <span class="footer-logo">Audit Trail Health</span>
+        <span class="footer-copy">&copy; 2026 Audit Trail Health. All rights reserved.</span>
     </div>
 </footer>
 
+<script src="/client/scripts/pages/sidebar.js" defer></script>
+<script>
+// ── Pull live stats from the database ──
+async function loadAboutStats() {
+    try {
+        const res  = await fetch("/api/locations");
+        const data = await res.json();
+
+        // Cities (unique)
+        const cities = [...new Set(data.map(l => l.city).filter(Boolean))];
+        document.getElementById("stat-cities").textContent = cities.length;
+
+        // Physicians (unique from locations data if available, fallback placeholder)
+        const physicianEl = document.getElementById("stat-physicians");
+        const specialtyEl = document.getElementById("stat-specialties");
+
+        // Fetch physician count separately
+        const phRes  = await fetch("/api/locations/stats");
+        if (phRes.ok) {
+            const stats = await phRes.json();
+            physicianEl.textContent = stats.physician_count || "—";
+            specialtyEl.textContent = stats.specialty_count || "—";
+        }
+
+        // Location chips
+        const chipsEl = document.getElementById("locations-chips");
+        if (cities.length > 0) {
+            const stateMap = {};
+            data.forEach(l => { if (l.city) stateMap[l.city] = l.state || ""; });
+            chipsEl.innerHTML = cities
+                .map(c => `<div class="loc-chip">${c}${stateMap[c] ? ", " + stateMap[c] : ""}</div>`)
+                .join("");
+        }
+    } catch (e) {
+        // Fallback — keep loading indicators hidden gracefully
+        document.getElementById("stat-cities").textContent = "3";
+        document.getElementById("stat-physicians").textContent = "6";
+        document.getElementById("stat-specialties").textContent = "6+";
+        document.getElementById("locations-chips").innerHTML = `
+            <div class="loc-chip">Dallas, TX</div>
+            <div class="loc-chip">Houston, TX</div>
+            <div class="loc-chip">Austin, TX</div>`;
+    }
+}
+loadAboutStats();
+</script>
 </body>
 </html>

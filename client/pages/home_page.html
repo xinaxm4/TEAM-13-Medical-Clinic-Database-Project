@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Palantir Clinic</title>
+    <title>Audit Trail Health</title>
     <link rel="stylesheet" href="/client/styles/pages/home_page.css">
     <link rel="stylesheet" href="/client/styles/pages/sidebar.css">
 </head>
@@ -10,19 +10,19 @@
 
 <header>
     <nav>
-        <h2 class="logo">Palantir Clinic</h2>
+        <h2 class="logo">Audit Trail Health</h2>
         <ul>
             <li><a href="/client/pages/about.html">About</a></li>
             <li><a href="/client/pages/locations/locations.html">Locations</a></li>
-            <li><a href="/client/auth/patient_login.html">Patient Login</a></li>
-            <li><a href="/client/auth/staff_login.html">Staff Portal</a></li>
+            <li><a href="#" onclick="openSidebar('patient'); return false;">Patient Login</a></li>
+            <li><a href="#" onclick="openSidebar('staff'); return false;">Staff Portal</a></li>
         </ul>
     </nav>
 </header>
 
 <section class="hero">
     <div class="hero-text">
-        <h1>Welcome to Palantir Clinic</h1>
+        <h1>Welcome to Audit Trail Health</h1>
         <p>Compassionate care across multiple locations.</p>
 
         <!-- Smart Search -->

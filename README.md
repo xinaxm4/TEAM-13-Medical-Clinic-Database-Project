@@ -1,4 +1,4 @@
-# Team 13 — Palantir Clinic
+# Team 13 — Audit Trail Health
 
 A full-stack medical clinic management system with role-based portals for patients, physicians, and staff. Built with **Node.js / Express**, **vanilla HTML/CSS/JS**, and a **MySQL** database hosted on Railway.
 

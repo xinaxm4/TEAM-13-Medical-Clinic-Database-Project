@@ -77,7 +77,7 @@ async function loadDashboard() {
         const firstName = staff?.first_name || "";
         const lastName  = staff?.last_name  || "";
         document.getElementById("greetName").textContent   = firstName;
-        document.getElementById("greetSub").textContent    = `${staff?.department_name || "Department"} · ${staff?.clinic_name || "Palantir Clinic"}`;
+        document.getElementById("greetSub").textContent    = `${staff?.department_name || "Department"} · ${staff?.clinic_name || "Audit Trail Health"}`;
         document.getElementById("sidebarName").textContent = `${firstName} ${lastName}`;
         document.getElementById("sidebarRole").textContent = staff?.role || "Staff";
         document.getElementById("roleBadge").textContent   = staff?.role || "Staff";
