@@ -51,7 +51,7 @@ nav a:hover {
 /* ── Hero ── */
 .hero {
     height: 100vh;
-    background-image: url("../images/locations.jpg");
+    background-image: url("/images/locations.jpg");
     background-size: cover;
     background-position: center;
     position: relative;
