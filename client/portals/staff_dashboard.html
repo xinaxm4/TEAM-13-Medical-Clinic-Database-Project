@@ -155,6 +155,10 @@
             <div class="section-block">
                 <div class="section-block-header">
                     <div><h3>Department Appointments</h3><p>Upcoming appointments in your department</p></div>
+                    <div style="display:flex;gap:8px">
+                        <button class="profile-edit-btn" onclick="loadDailySchedule()">Today's Schedule</button>
+                        <button class="profile-edit-btn" onclick="openStaffBookingModal()">+ Book Appointment</button>
+                    </div>
                 </div>
                 <table class="data-table">
                     <thead>
@@ -173,7 +177,7 @@
                 </div>
                 <table class="data-table">
                     <thead>
-                        <tr><th>Bill #</th><th>Patient</th><th>Total</th><th>Tax</th><th>Method</th><th>Date Paid</th><th>Status</th></tr>
+                        <tr><th>Bill #</th><th>Patient</th><th>Total</th><th>Tax</th><th>Method</th><th>Date Paid</th><th>Status</th><th>Action</th></tr>
                     </thead>
                     <tbody id="billingBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
                 </table>
@@ -238,6 +242,76 @@
             </div>
         </div>
 
+    </div>
+</div>
+
+<!-- ── Staff Book Appointment Modal ── -->
+<div class="modal-overlay hidden" id="staffBookingModal">
+    <div class="modal-box" style="max-width:520px">
+        <div class="modal-header">
+            <div><h3>Book Appointment</h3><p>Schedule for a patient</p></div>
+            <button class="modal-close" onclick="closeStaffBookingModal()">&#10005;</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">Patient</label>
+                    <select id="sb_patient" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit"><option value="">Loading…</option></select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">Physician</label>
+                    <select id="sb_physician" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit"><option value="">Loading…</option></select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">Date</label>
+                    <input type="date" id="sb_date" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit" onchange="loadStaffSlots()">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">Time Slot</label>
+                    <select id="sb_slot" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit"><option value="">Pick date first…</option></select>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">Appointment Type</label>
+                <select id="sb_type" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit">
+                    <option value="General">General</option>
+                    <option value="Physical">Physical / Annual Exam</option>
+                    <option value="Follow-Up">Follow-Up</option>
+                    <option value="Specialist">Specialist Consultation</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">Reason for Visit</label>
+                <textarea id="sb_reason" rows="2" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Reason…"></textarea>
+            </div>
+            <div id="staffBookingError" style="color:#e05c5c;font-size:13px;display:none"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+                <button onclick="closeStaffBookingModal()" style="padding:9px 18px;background:none;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer">Cancel</button>
+                <button onclick="submitStaffBooking()" style="padding:9px 22px;background:#4a2c8a;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">Book Appointment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Daily Schedule Modal ── -->
+<div class="modal-overlay hidden" id="scheduleModal">
+    <div class="modal-box" style="max-width:700px">
+        <div class="modal-header">
+            <div>
+                <h3>Daily Appointment Schedule</h3>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <input type="date" id="scheduleDate" style="padding:6px 10px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit" onchange="loadDailySchedule()">
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeScheduleModal()">&#10005;</button>
+        </div>
+        <div id="scheduleStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 24px;border-bottom:1px solid #f0f2f8"></div>
+        <div style="overflow-x:auto">
+            <table class="data-table">
+                <thead><tr><th>Time</th><th>Patient</th><th>Physician</th><th>Type</th><th>Reason</th><th>Location</th><th>Status</th></tr></thead>
+                <tbody id="scheduleBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
+            </table>
+        </div>
     </div>
 </div>
 

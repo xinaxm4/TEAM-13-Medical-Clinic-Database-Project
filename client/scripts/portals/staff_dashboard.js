@@ -168,8 +168,9 @@ async function loadDashboard() {
                 <td style="text-transform:capitalize">${b.payment_method || "—"}</td>
                 <td>${fmt(b.payment_date)}</td>
                 <td>${pill(b.payment_status || "Unpaid")}</td>
+                <td>${b.payment_status !== 'Paid' ? `<button onclick="markBillingPaid(${b.bill_id})" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #10b981;color:#10b981;border-radius:6px;cursor:pointer;font-family:inherit">Mark Paid</button>` : '—'}</td>
             </tr>`).join("")
-            : `<tr><td colspan="7" class="table-empty">No billing records</td></tr>`;
+            : `<tr><td colspan="8" class="table-empty">No billing records</td></tr>`;
 
         /* Profile */
         document.getElementById("profileGrid").innerHTML = `
@@ -190,3 +191,163 @@ async function loadDashboard() {
 }
 
 loadDashboard();
+
+/* ── Staff: Book Appointment Modal ── */
+async function openStaffBookingModal() {
+    document.getElementById("staffBookingModal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    document.getElementById("staffBookingError").style.display = "none";
+
+    // Set min date
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById("sb_date").min = tomorrow.toISOString().split("T")[0];
+    document.getElementById("sb_date").value = "";
+    document.getElementById("sb_slot").innerHTML = '<option value="">Pick date first…</option>';
+
+    // Load patients
+    const patSelect = document.getElementById("sb_patient");
+    patSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const r = await fetch(`/api/staff/patients?user_id=${user.id}`);
+        const pts = await r.json();
+        patSelect.innerHTML = '<option value="">Select patient…</option>' +
+            pts.map(p => `<option value="${p.patient_id}">${p.first_name} ${p.last_name}</option>`).join("");
+    } catch(e) { patSelect.innerHTML = '<option value="">Could not load patients</option>'; }
+
+    // Load physicians
+    const phSelect = document.getElementById("sb_physician");
+    phSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const r = await fetch(`/api/staff/physicians?user_id=${user.id}`);
+        const phs = await r.json();
+        phSelect.innerHTML = '<option value="">Select physician…</option>' +
+            phs.map(p => `<option value="${p.physician_id}">Dr. ${p.first_name} ${p.last_name} — ${p.specialty} (${p.city})</option>`).join("");
+    } catch(e) { phSelect.innerHTML = '<option value="">Could not load physicians</option>'; }
+}
+
+function closeStaffBookingModal() {
+    document.getElementById("staffBookingModal").classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+async function loadStaffSlots() {
+    const physician_id = document.getElementById("sb_physician").value;
+    const date = document.getElementById("sb_date").value;
+    const slotSelect = document.getElementById("sb_slot");
+    if (!physician_id || !date) { slotSelect.innerHTML = '<option value="">Select physician and date</option>'; return; }
+    slotSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const r = await fetch(`/api/patient/appointments/slots?physician_id=${physician_id}&date=${date}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!data.slots || !data.slots.length) {
+            slotSelect.innerHTML = '<option value="">No slots available</option>';
+        } else {
+            slotSelect.innerHTML = '<option value="">Choose a time…</option>' +
+                data.slots.map(s => {
+                    const [h, m] = s.split(":");
+                    const hNum = parseInt(h);
+                    const ampm = hNum >= 12 ? "PM" : "AM";
+                    const h12 = hNum % 12 || 12;
+                    return `<option value="${s}">${h12}:${m} ${ampm}</option>`;
+                }).join("");
+        }
+    } catch(e) { slotSelect.innerHTML = '<option value="">Could not load slots</option>'; }
+}
+
+async function submitStaffBooking() {
+    const patient_id       = document.getElementById("sb_patient").value;
+    const physician_id     = document.getElementById("sb_physician").value;
+    const date             = document.getElementById("sb_date").value;
+    const time             = document.getElementById("sb_slot").value;
+    const appointment_type = document.getElementById("sb_type").value;
+    const reason           = document.getElementById("sb_reason").value.trim();
+    const errEl            = document.getElementById("staffBookingError");
+
+    if (!patient_id || !physician_id || !date || !time) {
+        errEl.textContent = "Please fill in all required fields.";
+        errEl.style.display = "";
+        return;
+    }
+    errEl.style.display = "none";
+
+    try {
+        const r = await fetch("/api/staff/appointments/book", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: user.id, patient_id, physician_id, date, time, reason, appointment_type })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        closeStaffBookingModal();
+        loadDashboard();
+    } catch(err) {
+        errEl.textContent = err.message || "Could not book appointment.";
+        errEl.style.display = "";
+    }
+}
+
+/* ── Staff: Mark Billing Paid ── */
+async function markBillingPaid(bill_id) {
+    const method = prompt("Payment method (e.g. cash, credit card, insurance):");
+    if (!method) return;
+    try {
+        const r = await fetch(`/api/staff/billing/${bill_id}/pay`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: user.id, payment_method: method })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        loadDashboard();
+    } catch(err) {
+        alert(err.message || "Could not mark as paid.");
+    }
+}
+
+/* ── Staff: Daily Schedule Report ── */
+async function loadDailySchedule() {
+    const dateInput = document.getElementById("scheduleDate");
+    if (!dateInput.value) {
+        dateInput.value = new Date().toISOString().split("T")[0];
+    }
+    const date = dateInput.value;
+
+    document.getElementById("scheduleModal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    document.getElementById("scheduleBody").innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
+
+    try {
+        const r = await fetch(`/api/reports/daily-schedule?date=${date}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+
+        const { summary, appointments } = data;
+        document.getElementById("scheduleStats").innerHTML = `
+            <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:#4a2c8a">${summary.total}</div><div style="font-size:11px;color:#aaa;margin-top:3px">Total</div></div>
+            <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:#6ea8fe">${summary.scheduled}</div><div style="font-size:11px;color:#aaa;margin-top:3px">Scheduled</div></div>
+            <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:#10b981">${summary.completed}</div><div style="font-size:11px;color:#aaa;margin-top:3px">Completed</div></div>
+            <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:#f59e0b">${summary.noShow}</div><div style="font-size:11px;color:#aaa;margin-top:3px">No-Shows</div></div>`;
+
+        const timeFmt = t => { if(!t) return "—"; const [h,m] = t.split(":"); const hn=parseInt(h); return `${hn%12||12}:${m} ${hn>=12?"PM":"AM"}`; };
+        const pill = s => { const c={Completed:"#10b981","No-Show":"#f59e0b",Cancelled:"#9ca3af",Scheduled:"#6ea8fe"}[s]||"#9ca3af"; return `<span style="background:${c}22;color:${c};border:1px solid ${c}44;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${s}</span>`; };
+
+        document.getElementById("scheduleBody").innerHTML = appointments.length
+            ? appointments.map(a => `<tr>
+                <td class="primary">${timeFmt(a.appointment_time)}</td>
+                <td>${a.patient_name}</td>
+                <td>${a.physician_name}<br><span style="font-size:11px;color:#aaa">${a.specialty}</span></td>
+                <td>${a.appointment_type}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.reason_for_visit||"—"}</td>
+                <td>${a.city}</td>
+                <td>${pill(a.status_name)}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="7" class="table-empty">No appointments on this date</td></tr>`;
+    } catch(err) {
+        document.getElementById("scheduleBody").innerHTML = `<tr><td colspan="7" class="table-empty">Could not load schedule</td></tr>`;
+    }
+}
+
+function closeScheduleModal() {
+    document.getElementById("scheduleModal").classList.add("hidden");
+    document.body.style.overflow = "";
+}

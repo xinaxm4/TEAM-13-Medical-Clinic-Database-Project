@@ -6,6 +6,7 @@ const authRoutes      = require("./server/routes/authRoutes");
 const staffRoutes     = require("./server/routes/staffRoutes");
 const patientRoutes   = require("./server/routes/patientRoutes");
 const locationsRoutes = require("./server/routes/locationsRoutes");
+const reportRoutes    = require("./server/routes/reportRoutes");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use("/api/auth",      authRoutes);
 app.use("/api/staff",     staffRoutes);
 app.use("/api/patient",   patientRoutes);
 app.use("/api/locations", locationsRoutes);
+app.use("/api/reports",   reportRoutes);
 
 // Default: home page
 app.get("/", (req, res) => {

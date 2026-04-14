@@ -37,6 +37,11 @@
         .dob-locked { background:#f8f9ff; color:#999; cursor:not-allowed; border-color:#e8ecf5; }
         .dob-locked-note { font-size:11px; color:#aaa; margin-top:4px; }
         .theme-btn.active { background:#1f2a6d; color:white; border-color:#1f2a6d; }
+        .form-group { display:flex; flex-direction:column; gap:5px; }
+        .form-label { font-size:11px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.4px; }
+        .form-input { padding:9px 12px; border:1px solid #e0e3ed; border-radius:7px; font-size:13px; background:#fafbff; outline:none; font-family:inherit; }
+        .form-input:focus { border-color:#6ea8fe; background:white; }
+        .modal-section-label { font-size:10px; font-weight:700; text-transform:uppercase; color:#aaa; padding:20px 28px 8px; letter-spacing:1.5px; }
     </style>
     <script>if(localStorage.getItem("theme")==="dark")document.documentElement.setAttribute("data-theme","dark");</script>
 </head>
@@ -324,10 +329,11 @@
             <div class="section-block">
                 <div class="section-block-header">
                     <div><h3>My Appointments</h3><p>All appointments on file</p></div>
+                    <button class="profile-edit-btn" onclick="openBookingModal()">+ Book Appointment</button>
                 </div>
                 <table class="data-table">
                     <thead>
-                        <tr><th>Date</th><th>Time</th><th>Physician</th><th>Office</th><th>Reason</th><th>Booked Via</th><th>Status</th></tr>
+                        <tr><th>Date</th><th>Time</th><th>Physician</th><th>Location</th><th>Reason</th><th>Status</th><th>Action</th></tr>
                     </thead>
                     <tbody id="apptBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
                 </table>
@@ -475,6 +481,77 @@
 
     </div><!-- /main-content -->
 </div><!-- /dashboard-wrap -->
+
+<!-- ── Book Appointment Modal ── -->
+<div class="modal-overlay hidden" id="bookingModal">
+    <div class="modal-box" style="max-width:520px">
+        <div class="modal-header">
+            <div><h3>Book an Appointment</h3><p>Schedule a visit with your physician</p></div>
+            <button class="modal-close" onclick="closeBookingModal()">&#10005;</button>
+        </div>
+
+        <!-- Step 1: Physician -->
+        <div id="bstep1">
+            <div class="modal-section-label">Step 1 of 3 — Select Physician</div>
+            <div style="padding:0 28px 20px">
+                <div class="form-group">
+                    <label class="form-label">Physician</label>
+                    <select class="form-input" id="b_physician"></select>
+                </div>
+                <div style="margin-top:16px;display:flex;justify-content:flex-end">
+                    <button class="modal-save-btn" onclick="bookingStep2()">Next →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Date + Slot -->
+        <div id="bstep2" class="hidden">
+            <div class="modal-section-label">Step 2 of 3 — Choose Date &amp; Time</div>
+            <div style="padding:0 28px 20px">
+                <div class="modal-grid" style="grid-template-columns:1fr 1fr">
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-input" id="b_date" onchange="loadSlots()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Available Time</label>
+                        <select class="form-input" id="b_slot">
+                            <option value="">Pick a date first…</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top:16px;display:flex;justify-content:space-between">
+                    <button class="modal-cancel-btn" onclick="bookingBack1()">← Back</button>
+                    <button class="modal-save-btn" onclick="bookingStep3()">Next →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Reason -->
+        <div id="bstep3" class="hidden">
+            <div class="modal-section-label">Step 3 of 3 — Visit Details</div>
+            <div style="padding:0 28px 20px">
+                <div class="form-group" style="margin-bottom:12px">
+                    <label class="form-label">Appointment Type</label>
+                    <select class="form-input" id="b_type">
+                        <option value="General">General</option>
+                        <option value="Physical">Physical / Annual Exam</option>
+                        <option value="Follow-Up">Follow-Up</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason for Visit</label>
+                    <textarea class="form-input" id="b_reason" rows="3" placeholder="Describe your symptoms or reason for visit…" style="resize:vertical"></textarea>
+                </div>
+                <div id="bookingError" style="color:#e05c5c;font-size:13px;margin-top:8px;display:none"></div>
+                <div style="margin-top:16px;display:flex;justify-content:space-between">
+                    <button class="modal-cancel-btn" onclick="bookingBack2()">← Back</button>
+                    <button class="modal-save-btn" onclick="submitBooking()">Confirm Booking</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="/client/scripts/dark-mode.js"></script>
 <script src="/client/scripts/portals/patient_dashboard.js"></script>

@@ -33,7 +33,7 @@ function showSection(name) {
     if (sec) sec.classList.remove("hidden");
     const btn = document.querySelector(`.nav-item[onclick*="'${name}'"]`);
     if (btn) btn.classList.add("active");
-    const labels = { overview:"Overview", appointments:"Appointments", patients:"My Patients", schedule:"Work Schedule", referrals:"Referrals", incoming:"Incoming Referrals", settings:"Settings" };
+    const labels = { overview:"Overview", appointments:"Appointments", patients:"My Patients", schedule:"Work Schedule", referrals:"Referrals", incoming:"Incoming Referrals", settings:"Settings", reports:"Reports" };
     document.getElementById("currentSection").textContent = labels[name] || name;
 }
 
@@ -363,8 +363,9 @@ async function loadDashboard() {
                 <td>${a.reason_for_visit || "—"}</td>
                 <td>${pill(a.status_name)}</td>
                 <td><button onclick='openNoteModal(${a.patient_id},"${a.patient_first} ${a.patient_last}")' style="padding:5px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:11px;font-weight:700;color:#15803d;cursor:pointer;font-family:inherit">+ Note</button></td>
+                <td>${a.status_name === 'Scheduled' ? `<button onclick="openStatusModal(${a.appointment_id}, '${a.patient_first} ${a.patient_last}', '${a.appointment_date}')" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #1f6d45;color:#1f6d45;border-radius:6px;cursor:pointer;font-family:inherit">Update</button>` : '—'}</td>
             </tr>`).join("")
-            : `<tr><td colspan="7" class="table-empty">No appointments found</td></tr>`;
+            : `<tr><td colspan="8" class="table-empty">No appointments found</td></tr>`;
 
         /* Patients table */
         document.getElementById("patientsBody").innerHTML = patients.length
@@ -407,3 +408,76 @@ async function loadDashboard() {
 }
 
 loadDashboard();
+
+/* ── Update Appointment Status ── */
+let _statusAppointmentId = null;
+
+function openStatusModal(appointment_id, patientName, date) {
+    _statusAppointmentId = appointment_id;
+    document.getElementById("statusModalInfo").textContent = `Patient: ${patientName} | Date: ${date}`;
+    document.getElementById("statusModalError").style.display = "none";
+    document.getElementById("statusModal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+}
+
+function closeStatusModal() {
+    document.getElementById("statusModal").classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+async function submitStatusUpdate() {
+    const status_id = document.getElementById("statusSelect").value;
+    const errEl = document.getElementById("statusModalError");
+    errEl.style.display = "none";
+    try {
+        const r = await fetch(`/api/staff/appointment/${_statusAppointmentId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status_id: parseInt(status_id), user_id: user.id })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        closeStatusModal();
+        loadDashboard();
+    } catch(err) {
+        errEl.textContent = err.message || "Could not update status.";
+        errEl.style.display = "";
+    }
+}
+
+/* ── Physician Activity Report ── */
+async function loadActivityReport() {
+    const physician_id = user.physicianId || user.id;
+    document.getElementById("reportBody").innerHTML = `<tr><td colspan="6" class="table-empty">Loading…</td></tr>`;
+    try {
+        const r = await fetch(`/api/reports/physician-activity?physician_id=${physician_id}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        const { stats, appointments } = data;
+
+        document.getElementById("rpt_total").textContent    = stats.total_appointments || 0;
+        document.getElementById("rpt_rate").textContent     = (stats.completion_rate_pct || 0) + "%";
+        document.getElementById("rpt_revenue").textContent  = "$" + parseFloat(stats.total_revenue_billed || 0).toFixed(0);
+        document.getElementById("rpt_patients").textContent = stats.unique_patients_seen || 0;
+
+        const fmt = d => d ? new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : "—";
+        const pill = s => {
+            const colors = { Completed:"#10b981", "No-Show":"#f59e0b", Cancelled:"#9ca3af", Scheduled:"#6ea8fe" };
+            const c = colors[s] || "#9ca3af";
+            return `<span style="background:${c}22;color:${c};border:1px solid ${c}44;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${s}</span>`;
+        };
+
+        document.getElementById("reportBody").innerHTML = appointments.length
+            ? appointments.map(a => `<tr>
+                <td class="primary">${fmt(a.appointment_date)}</td>
+                <td>${a.patient_name}</td>
+                <td>${a.appointment_type || "—"}</td>
+                <td>${pill(a.status_name)}</td>
+                <td>$${parseFloat(a.billed||0).toFixed(2)}</td>
+                <td>$${parseFloat(a.owed||0).toFixed(2)}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="6" class="table-empty">No appointments in the last 90 days</td></tr>`;
+    } catch(err) {
+        document.getElementById("reportBody").innerHTML = `<tr><td colspan="6" class="table-empty">Could not load report</td></tr>`;
+    }
+}

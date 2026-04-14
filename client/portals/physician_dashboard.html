@@ -194,6 +194,7 @@
             <button class="nav-item" onclick="showSection('referrals')">Referrals Issued</button>
             <button class="nav-item" onclick="showSection('incoming')">Incoming Referrals</button>
             <button class="nav-item" onclick="showSection('settings')">Settings</button>
+            <button class="nav-item" onclick="showSection('reports')">Reports</button>
         </nav>
         <div class="sidebar-user">
             <div class="user-avatar" id="avatarInitials">Dr</div>
@@ -289,7 +290,7 @@
                 </div>
                 <table class="data-table">
                     <thead>
-                        <tr><th>Date</th><th>Time</th><th>Patient</th><th>Office</th><th>Reason</th><th>Status</th><th>Notes</th></tr>
+                        <tr><th>Date</th><th>Time</th><th>Patient</th><th>Office</th><th>Reason</th><th>Status</th><th>Notes</th><th>Action</th></tr>
                     </thead>
                     <tbody id="apptBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
                 </table>
@@ -350,6 +351,42 @@
                 <div class="referral-cards-grid" id="incomingReferralCards">
                     <p class="loading-msg">Loading…</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- ── Reports Section ── -->
+        <div class="page-section hidden" id="sec-reports">
+            <div class="section-block">
+                <div class="section-block-header">
+                    <div><h3>Physician Activity Report</h3><p>Your last 90 days</p></div>
+                    <button class="profile-edit-btn" onclick="loadActivityReport()">Refresh</button>
+                </div>
+                <!-- Summary stats -->
+                <div id="reportSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:20px 24px;border-bottom:1px solid #f0f2f8">
+                    <div style="text-align:center">
+                        <div style="font-size:24px;font-weight:700;color:#1f6d45" id="rpt_total">—</div>
+                        <div style="font-size:11px;color:#aaa;margin-top:4px">Total Appointments</div>
+                    </div>
+                    <div style="text-align:center">
+                        <div style="font-size:24px;font-weight:700;color:#1f6d45" id="rpt_rate">—</div>
+                        <div style="font-size:11px;color:#aaa;margin-top:4px">Completion Rate</div>
+                    </div>
+                    <div style="text-align:center">
+                        <div style="font-size:24px;font-weight:700;color:#1f6d45" id="rpt_revenue">—</div>
+                        <div style="font-size:11px;color:#aaa;margin-top:4px">Revenue Billed</div>
+                    </div>
+                    <div style="text-align:center">
+                        <div style="font-size:24px;font-weight:700;color:#1f6d45" id="rpt_patients">—</div>
+                        <div style="font-size:11px;color:#aaa;margin-top:4px">Unique Patients</div>
+                    </div>
+                </div>
+                <!-- Detail table -->
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Date</th><th>Patient</th><th>Type</th><th>Status</th><th>Billed</th><th>Patient Owes</th></tr>
+                    </thead>
+                    <tbody id="reportBody"><tr><td colspan="6" class="table-empty">Click Refresh to load your report</td></tr></tbody>
+                </table>
             </div>
         </div>
 
@@ -474,6 +511,32 @@
             <button class="btn-accept" id="refModalAccept">Accept</button>
             <button class="btn-reject" id="refModalReject">Reject</button>
             <button class="btn-cancel" onclick="closeReferralModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Update Appointment Status Modal ── -->
+<div class="modal-overlay hidden" id="statusModal">
+    <div class="modal-box" style="max-width:400px">
+        <div class="modal-header">
+            <h3>Update Appointment Status</h3>
+            <button class="modal-close" onclick="closeStatusModal()">&#10005;</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+            <div id="statusModalInfo" style="font-size:13px;color:#555;background:#f8f9ff;padding:12px 14px;border-radius:8px"></div>
+            <div>
+                <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px">New Status</label>
+                <select id="statusSelect" style="width:100%;padding:9px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit">
+                    <option value="2">Completed</option>
+                    <option value="4">No-Show</option>
+                    <option value="3">Cancelled</option>
+                </select>
+            </div>
+            <div id="statusModalError" style="color:#e05c5c;font-size:13px;display:none"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+                <button class="modal-cancel-btn" onclick="closeStatusModal()">Cancel</button>
+                <button class="modal-save-btn" onclick="submitStatusUpdate()">Update</button>
+            </div>
         </div>
     </div>
 </div>

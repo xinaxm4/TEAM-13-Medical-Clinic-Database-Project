@@ -375,4 +375,137 @@ const addPhysicianNote = (req, res) => {
     });
 };
 
-module.exports = { loginStaff, getPhysicianDashboard, getStaffDashboard, getAllSchedules, getPhysicianReferrals, updateReferralStatus, addPhysicianNote };
+/* PUT /api/staff/appointment/:id/status — physician or staff */
+const updateAppointmentStatus = (req, res) => {
+    const { id } = req.params;
+    const { status_id, user_id } = req.body;
+    if (!status_id) return res.status(400).json({ message: "status_id required" });
+
+    // Valid status transitions: Completed(2), No-Show(4), Cancelled(3)
+    const allowed = [2, 3, 4];
+    if (!allowed.includes(Number(status_id)))
+        return res.status(400).json({ message: "Invalid status. Use 2 (Completed), 3 (Cancelled), or 4 (No-Show)" });
+
+    db.query(
+        "UPDATE appointment SET status_id = ? WHERE appointment_id = ?",
+        [status_id, id],
+        (err, result) => {
+            if (err) return res.status(500).json({ message: "Could not update appointment status" });
+            if (result.affectedRows === 0) return res.status(404).json({ message: "Appointment not found" });
+            res.json({ message: "Appointment status updated successfully" });
+        }
+    );
+};
+
+/* DELETE /api/staff/medical-history/:id — physician only, must own the note */
+const deleteMedicalHistoryNote = (req, res) => {
+    const { id } = req.params;
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ message: "user_id required" });
+
+    // Get physician_id from user_id
+    db.query("SELECT physician_id FROM users WHERE user_id = ?", [user_id], (err, rows) => {
+        if (err || !rows.length || !rows[0].physician_id)
+            return res.status(403).json({ message: "Not authorized" });
+
+        const physician_id = rows[0].physician_id;
+
+        // Verify physician owns this note
+        db.query(
+            "SELECT medical_history_id FROM medical_history WHERE medical_history_id = ? AND physician_id = ?",
+            [id, physician_id],
+            (e2, check) => {
+                if (e2) return res.status(500).json({ message: "Query failed" });
+                if (!check.length) return res.status(403).json({ message: "You can only delete notes you created" });
+
+                db.query("DELETE FROM medical_history WHERE medical_history_id = ?", [id], (e3) => {
+                    if (e3) return res.status(500).json({ message: "Could not delete note" });
+                    res.json({ message: "Note deleted successfully" });
+                });
+            }
+        );
+    });
+};
+
+/* POST /api/staff/appointments/book — staff books for any patient */
+const staffBookAppointment = (req, res) => {
+    const { patient_id, physician_id, date, time, reason, appointment_type } = req.body;
+    if (!patient_id || !physician_id || !date || !time)
+        return res.status(400).json({ message: "patient_id, physician_id, date, and time are required" });
+
+    const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const dayOfWeek = dayNames[new Date(date + "T12:00:00").getDay()];
+
+    db.query(
+        "SELECT office_id FROM work_schedule WHERE physician_id = ? AND day_of_week = ? LIMIT 1",
+        [physician_id, dayOfWeek],
+        (err, sched) => {
+            if (err || !sched.length)
+                return res.status(400).json({ message: "Physician not scheduled on that day" });
+
+            const office_id = sched[0].office_id;
+            const sql = `INSERT INTO appointment
+                (patient_id, physician_id, office_id, appointment_date, appointment_time,
+                 status_id, booking_method, reason_for_visit, appointment_type, duration_minutes)
+                VALUES (?, ?, ?, ?, ?, 1, 'in-person', ?, ?, 30)`;
+
+            db.query(sql, [patient_id, physician_id, office_id, date, time,
+                           reason || null, appointment_type || "General"], (e2, result) => {
+                if (e2) {
+                    if (e2.code === "ER_DUP_ENTRY")
+                        return res.status(409).json({ message: "That time slot is already booked." });
+                    return res.status(500).json({ message: "Could not book appointment: " + e2.message });
+                }
+                res.json({ message: "Appointment booked successfully", appointment_id: result.insertId });
+            });
+        }
+    );
+};
+
+/* PUT /api/staff/billing/:id/pay */
+const markBillingPaid = (req, res) => {
+    const { id } = req.params;
+    const { payment_method } = req.body;
+    if (!payment_method) return res.status(400).json({ message: "payment_method required" });
+
+    db.query(
+        "UPDATE billing SET payment_status = 'Paid', payment_method = ?, payment_date = CURDATE() WHERE bill_id = ?",
+        [payment_method, id],
+        (err, result) => {
+            if (err) return res.status(500).json({ message: "Could not update billing record" });
+            if (result.affectedRows === 0) return res.status(404).json({ message: "Bill not found" });
+            res.json({ message: "Billing marked as paid" });
+        }
+    );
+};
+
+/* GET /api/staff/patients — all patients for staff booking */
+const getAllPatients = (req, res) => {
+    db.query(
+        `SELECT patient_id, first_name, last_name, phone_number, email
+         FROM patient WHERE first_name != '' ORDER BY last_name, first_name`,
+        (err, rows) => {
+            if (err) return res.status(500).json({ message: "Query failed" });
+            res.json(rows);
+        }
+    );
+};
+
+/* GET /api/staff/physicians — all physicians for staff booking */
+const getAllPhysicians = (req, res) => {
+    db.query(
+        `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty, ph.physician_type,
+                o.city
+         FROM physician ph
+         JOIN work_schedule ws ON ph.physician_id = ws.physician_id
+         JOIN office o ON ws.office_id = o.office_id
+         GROUP BY ph.physician_id, o.city
+         ORDER BY o.city, ph.last_name`,
+        (err, rows) => {
+            if (err) return res.status(500).json({ message: "Query failed" });
+            res.json(rows);
+        }
+    );
+};
+
+module.exports = { loginStaff, getPhysicianDashboard, getStaffDashboard, getAllSchedules, getPhysicianReferrals, updateReferralStatus, addPhysicianNote, updateAppointmentStatus, deleteMedicalHistoryNote, staffBookAppointment, markBillingPaid, getAllPatients, getAllPhysicians };

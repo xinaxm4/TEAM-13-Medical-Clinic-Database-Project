@@ -206,8 +206,10 @@ async function loadDashboard() {
                 <td>Dr. ${a.doc_first} ${a.doc_last}</td>
                 <td>${a.city || "—"}</td>
                 <td>${a.reason_for_visit || "—"}</td>
-                <td style="text-transform:capitalize">${a.booking_method || "—"}</td>
                 <td>${pill(a.status_name)}</td>
+                <td>${a.status_name === "Scheduled"
+                    ? `<button onclick="cancelAppointment(${a.appointment_id})" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #e05c5c;color:#e05c5c;border-radius:6px;cursor:pointer;font-family:inherit">Cancel</button>`
+                    : "—"}</td>
             </tr>`).join("")
             : `<tr><td colspan="7" class="table-empty">No appointments found</td></tr>`;
 
@@ -733,3 +735,139 @@ async function submitProfile(e) {
 }
 
 loadDashboard();
+
+/* ── Booking Modal ── */
+let _bookingOfficeId = null;
+
+async function openBookingModal() {
+    document.getElementById("bookingModal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    document.getElementById("bookingError").style.display = "none";
+    // Reset to step 1
+    ["bstep1","bstep2","bstep3"].forEach((id,i) => {
+        document.getElementById(id).classList.toggle("hidden", i !== 0);
+    });
+
+    // Populate physician dropdown — default to primary physician + others in same city
+    const phSelect = document.getElementById("b_physician");
+    phSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const city = _patientCity || "";
+        const r = await fetch(`/api/patient/care/physicians?city=${encodeURIComponent(city)}&user_id=${user.id}`);
+        const physicians = await r.json();
+        // Also load specialists
+        const r2 = await fetch(`/api/patient/referral/specialists?city=${encodeURIComponent(city)}&user_id=${user.id}`);
+        const specialists = await r2.json();
+        const all = [...physicians, ...specialists];
+        if (!all.length) {
+            phSelect.innerHTML = '<option value="">No physicians found — update your city in profile</option>';
+        } else {
+            phSelect.innerHTML = '<option value="">Select a physician…</option>' +
+                all.map(p => `<option value="${p.physician_id}">Dr. ${p.first_name} ${p.last_name} — ${p.specialty}</option>`).join("");
+        }
+    } catch(e) { phSelect.innerHTML = '<option value="">Could not load physicians</option>'; }
+
+    // Set min date on date picker
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateInput = document.getElementById("b_date");
+    dateInput.min = tomorrow.toISOString().split("T")[0];
+    dateInput.value = "";
+    document.getElementById("b_slot").innerHTML = '<option value="">Pick a date first…</option>';
+}
+
+function closeBookingModal() {
+    document.getElementById("bookingModal").classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+function bookingStep2() {
+    const ph = document.getElementById("b_physician").value;
+    if (!ph) { alert("Please select a physician."); return; }
+    document.getElementById("bstep1").classList.add("hidden");
+    document.getElementById("bstep2").classList.remove("hidden");
+}
+
+function bookingBack1() {
+    document.getElementById("bstep2").classList.add("hidden");
+    document.getElementById("bstep1").classList.remove("hidden");
+}
+
+async function loadSlots() {
+    const physician_id = document.getElementById("b_physician").value;
+    const date = document.getElementById("b_date").value;
+    const slotSelect = document.getElementById("b_slot");
+    if (!date) return;
+    slotSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const r = await fetch(`/api/patient/appointments/slots?physician_id=${physician_id}&date=${date}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!data.slots || !data.slots.length) {
+            slotSelect.innerHTML = '<option value="">No slots available on this day</option>';
+        } else {
+            _bookingOfficeId = data.office_id;
+            slotSelect.innerHTML = '<option value="">Choose a time…</option>' +
+                data.slots.map(s => {
+                    const [h, m] = s.split(":");
+                    const hNum = parseInt(h);
+                    const ampm = hNum >= 12 ? "PM" : "AM";
+                    const h12 = hNum % 12 || 12;
+                    return `<option value="${s}">${h12}:${m} ${ampm}</option>`;
+                }).join("");
+        }
+    } catch(e) { slotSelect.innerHTML = '<option value="">Could not load slots</option>'; }
+}
+
+function bookingStep3() {
+    const date = document.getElementById("b_date").value;
+    const slot = document.getElementById("b_slot").value;
+    if (!date) { alert("Please select a date."); return; }
+    if (!slot)  { alert("Please select a time slot."); return; }
+    document.getElementById("bstep2").classList.add("hidden");
+    document.getElementById("bstep3").classList.remove("hidden");
+}
+
+function bookingBack2() {
+    document.getElementById("bstep3").classList.add("hidden");
+    document.getElementById("bstep2").classList.remove("hidden");
+}
+
+async function submitBooking() {
+    const physician_id     = document.getElementById("b_physician").value;
+    const date             = document.getElementById("b_date").value;
+    const time             = document.getElementById("b_slot").value;
+    const appointment_type = document.getElementById("b_type").value;
+    const reason           = document.getElementById("b_reason").value.trim();
+    const errEl            = document.getElementById("bookingError");
+
+    errEl.style.display = "none";
+    try {
+        const r = await fetch("/api/patient/appointments/book", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: user.id, physician_id, date, time, reason, appointment_type })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        closeBookingModal();
+        loadDashboard();
+    } catch(err) {
+        errEl.textContent = err.message || "Could not book. Please try again.";
+        errEl.style.display = "";
+    }
+}
+
+async function cancelAppointment(appointment_id) {
+    if (!confirm("Are you sure you want to cancel this appointment?")) return;
+    try {
+        const r = await fetch(`/api/patient/appointments/${appointment_id}/cancel`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: user.id })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        loadDashboard();
+    } catch(err) {
+        alert(err.message || "Could not cancel appointment.");
+    }
+}

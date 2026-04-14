@@ -290,4 +290,126 @@ const requestReferral = (req, res) => {
     );
 };
 
-module.exports = { getPatientDashboard, updatePatientProfile, getCareCities, getPhysiciansByCity, getInsuranceOptions, assignCare, getSpecialistsByCity, requestReferral };
+/* GET /api/patient/appointments/slots?physician_id=X&date=YYYY-MM-DD */
+const getAvailableSlots = (req, res) => {
+    const { physician_id, date } = req.query;
+    if (!physician_id || !date) return res.status(400).json({ message: "physician_id and date required" });
+
+    // Get the weekday name from the date
+    const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const dayOfWeek = dayNames[new Date(date + "T12:00:00").getDay()];
+
+    // Get work schedule for this physician on this weekday
+    const scheduleSql = `
+        SELECT ws.start_time, ws.end_time, ws.office_id
+        FROM work_schedule ws
+        WHERE ws.physician_id = ? AND ws.day_of_week = ?
+        LIMIT 1`;
+
+    db.query(scheduleSql, [physician_id, dayOfWeek], (err, schedule) => {
+        if (err) return res.status(500).json({ message: "Query failed" });
+        if (!schedule.length) return res.json({ slots: [], office_id: null, message: "Physician not scheduled on this day" });
+
+        const { start_time, end_time, office_id } = schedule[0];
+
+        // Get already-booked times for that day
+        const bookedSql = `
+            SELECT appointment_time FROM appointment
+            WHERE physician_id = ? AND appointment_date = ? AND status_id != 3`;
+
+        db.query(bookedSql, [physician_id, date], (e2, booked) => {
+            if (e2) return res.status(500).json({ message: "Query failed" });
+
+            const bookedTimes = new Set(booked.map(b => b.appointment_time.slice(0,5)));
+
+            // Generate 30-min slots
+            const slots = [];
+            const [sh, sm] = start_time.split(":").map(Number);
+            const [eh, em] = end_time.split(":").map(Number);
+            let cur = sh * 60 + sm;
+            const end = eh * 60 + em;
+
+            while (cur + 30 <= end) {
+                const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+                const mm = String(cur % 60).padStart(2, "0");
+                const timeStr = `${hh}:${mm}`;
+                if (!bookedTimes.has(timeStr)) slots.push(timeStr);
+                cur += 30;
+            }
+
+            res.json({ slots, office_id });
+        });
+    });
+};
+
+/* POST /api/patient/appointments/book */
+const bookAppointment = (req, res) => {
+    const { user_id, physician_id, date, time, reason, appointment_type } = req.body;
+    if (!user_id || !physician_id || !date || !time)
+        return res.status(400).json({ message: "user_id, physician_id, date, and time are required" });
+
+    // Validate date is in the future
+    if (new Date(date + "T00:00:00") <= new Date(new Date().toDateString()))
+        return res.status(400).json({ message: "Appointment date must be in the future" });
+
+    // Get patient_id from user_id
+    db.query("SELECT patient_id FROM patient WHERE user_id = ?", [user_id], (err, rows) => {
+        if (err || !rows.length) return res.status(400).json({ message: "Patient not found" });
+        const patient_id = rows[0].patient_id;
+
+        // Get office_id from work_schedule
+        const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+        const dayOfWeek = dayNames[new Date(date + "T12:00:00").getDay()];
+
+        db.query(
+            "SELECT office_id FROM work_schedule WHERE physician_id = ? AND day_of_week = ? LIMIT 1",
+            [physician_id, dayOfWeek],
+            (e2, sched) => {
+                if (e2 || !sched.length)
+                    return res.status(400).json({ message: "Physician not scheduled on that day" });
+
+                const office_id = sched[0].office_id;
+
+                const sql = `INSERT INTO appointment
+                    (patient_id, physician_id, office_id, appointment_date, appointment_time,
+                     status_id, booking_method, reason_for_visit, appointment_type, duration_minutes)
+                    VALUES (?, ?, ?, ?, ?, 1, 'online', ?, ?, 30)`;
+
+                db.query(sql, [patient_id, physician_id, office_id, date, time,
+                               reason || null, appointment_type || "General"], (e3, result) => {
+                    if (e3) {
+                        if (e3.code === "ER_DUP_ENTRY")
+                            return res.status(409).json({ message: "That time slot is no longer available. Please choose another." });
+                        return res.status(500).json({ message: "Could not book appointment" });
+                    }
+                    res.json({ message: "Appointment booked successfully", appointment_id: result.insertId });
+                });
+            }
+        );
+    });
+};
+
+/* PUT /api/patient/appointments/:id/cancel */
+const cancelAppointment = (req, res) => {
+    const { id } = req.params;
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ message: "user_id required" });
+
+    // Verify the appointment belongs to this patient and is Scheduled
+    const checkSql = `
+        SELECT a.appointment_id FROM appointment a
+        JOIN patient p ON a.patient_id = p.patient_id
+        WHERE a.appointment_id = ? AND p.user_id = ? AND a.status_id = 1`;
+
+    db.query(checkSql, [id, user_id], (err, rows) => {
+        if (err) return res.status(500).json({ message: "Query failed" });
+        if (!rows.length) return res.status(403).json({ message: "Appointment not found or cannot be cancelled" });
+
+        db.query("UPDATE appointment SET status_id = 3 WHERE appointment_id = ?", [id], (e2) => {
+            if (e2) return res.status(500).json({ message: "Could not cancel appointment" });
+            res.json({ message: "Appointment cancelled successfully" });
+        });
+    });
+};
+
+module.exports = { getPatientDashboard, updatePatientProfile, getCareCities, getPhysiciansByCity, getInsuranceOptions, assignCare, getSpecialistsByCity, requestReferral, getAvailableSlots, bookAppointment, cancelAppointment };
