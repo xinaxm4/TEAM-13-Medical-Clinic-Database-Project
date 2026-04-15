@@ -250,12 +250,13 @@
 
                 <!-- Confirmation warning — shown only when changing an existing physician -->
                 <div id="careChangeConfirm" style="display:none;background:#fff5f5;border:1px solid #ef4444;border-radius:8px;padding:12px 16px;margin-bottom:12px">
-                    <div style="font-weight:600;color:#b91c1c;margin-bottom:4px">Are you sure you want to change your physician?</div>
-                    <div style="font-size:13px;color:#7f1d1d;line-height:1.5;margin-bottom:10px">
+                    <div style="font-weight:600;color:#b91c1c;margin-bottom:6px">Are you sure you want to change your physician?</div>
+                    <div style="font-size:13px;color:#7f1d1d;line-height:1.5;margin-bottom:8px">
                         Any referral requests that have not been issued yet will be cancelled.
                         Referrals already in progress will remain valid.
                     </div>
-                    <div style="display:flex;gap:10px">
+                    <div id="careChangeAppts"></div>
+                    <div style="display:flex;gap:10px;margin-top:12px">
                         <button type="button" class="modal-save-btn" style="background:#ef4444;font-size:13px;padding:8px 16px" onclick="confirmCareChange()">Yes, change my physician</button>
                         <button type="button" class="modal-cancel-btn" style="font-size:13px;padding:8px 16px" onclick="cancelCareChange()">Cancel</button>
                     </div>

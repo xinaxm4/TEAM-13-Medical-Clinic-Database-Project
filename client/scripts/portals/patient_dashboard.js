@@ -439,23 +439,51 @@ async function submitCareSetup() {
     // If patient already has a physician assigned, show confirmation
     const confirmEl = document.getElementById("careChangeConfirm");
     if (confirmEl && confirmEl.dataset.shown !== "true") {
-        // Check if they're actually changing physicians
         const dashRes = await fetch(`/api/patient/dashboard?user_id=${user.id}`);
         const dashData = await dashRes.json();
-        const currentPhysicianId = dashData.patient && dashData.patient.primary_physician_id;
+        const patient = dashData.patient;
+        const currentPhysicianId = patient && patient.primary_physician_id;
 
         if (currentPhysicianId && String(currentPhysicianId) !== String(physician_id)) {
-            // Show inline confirmation warning
+            // Find upcoming scheduled appointments with old physician
+            const upcoming = (dashData.appointments || []).filter(a =>
+                String(a.physician_id) === String(currentPhysicianId) &&
+                a.status_name === "Scheduled" &&
+                new Date(a.appointment_date) >= new Date()
+            );
+
+            // Build appointment list for the warning
+            const apptListEl = document.getElementById("careChangeAppts");
+            if (apptListEl) {
+                if (upcoming.length > 0) {
+                    apptListEl.innerHTML = `
+                        <div style="margin:8px 0 4px;font-size:13px;color:#7f1d1d;font-weight:600">
+                            You have ${upcoming.length} upcoming appointment${upcoming.length > 1 ? "s" : ""} with Dr. ${patient.doc_last}:
+                        </div>
+                        <ul style="margin:4px 0 10px 16px;font-size:12px;color:#7f1d1d">
+                            ${upcoming.map(a => `<li>${fmt(a.appointment_date)} — ${a.reason_for_visit || "Visit"}</li>`).join("")}
+                        </ul>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#7f1d1d;cursor:pointer">
+                            <input type="checkbox" id="cancelUpcomingCheck">
+                            Cancel these appointments and rebook with my new physician
+                        </label>`;
+                } else {
+                    apptListEl.innerHTML = `<div style="font-size:13px;color:#7f1d1d;margin-bottom:6px">You have no upcoming appointments with your current physician.</div>`;
+                }
+            }
+
             confirmEl.style.display = "";
             confirmEl.dataset.shown = "true";
             msg.className = "modal-save-msg";
             msg.textContent = "";
-            return; // wait for user to confirm
+            return;
         }
     }
 
     // Reset confirm state
     if (confirmEl) { confirmEl.style.display = "none"; confirmEl.dataset.shown = "false"; }
+
+    const cancelUpcoming = document.getElementById("cancelUpcomingCheck") && document.getElementById("cancelUpcomingCheck").checked;
 
     msg.className = "modal-save-msg";
     msg.textContent = "Saving…";
@@ -464,14 +492,14 @@ async function submitCareSetup() {
         const r = await fetch("/api/patient/care/assign", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_id: user.id, physician_id, insurance_id: insurance_id || null })
+            body: JSON.stringify({ user_id: user.id, physician_id, insurance_id: insurance_id || null, cancelUpcoming })
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message || "Failed to assign care team");
         msg.className = "modal-save-msg success";
         msg.textContent = data.physicianChanged
-            ? "Physician changed. Any pending referral requests have been cancelled."
-            : "Care team set! Loading your dashboard…";
+            ? "Physician changed. Pending referrals cancelled." + (cancelUpcoming ? " Upcoming appointments cancelled." : "")
+            : "Care team saved.";
         setTimeout(() => {
             closeCareModal();
             loadDashboard();
@@ -483,7 +511,6 @@ async function submitCareSetup() {
 }
 
 function confirmCareChange() {
-    // User clicked "Yes, change physician" — force through
     const confirmEl = document.getElementById("careChangeConfirm");
     if (confirmEl) { confirmEl.dataset.shown = "true"; }
     submitCareSetup();

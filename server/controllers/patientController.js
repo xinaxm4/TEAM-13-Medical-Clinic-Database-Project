@@ -219,10 +219,10 @@ const getInsuranceOptions = (req, res) => {
 
 /* PUT /api/patient/care/assign */
 const assignCare = (req, res) => {
-    const { user_id, physician_id, insurance_id } = req.body;
+    const { user_id, physician_id, insurance_id, cancelUpcoming } = req.body;
     if (!user_id || !physician_id) return res.status(400).json({ message: "user_id and physician_id required" });
 
-    // Get current physician so we know if this is a change
+    // Get current physician + any upcoming scheduled appointments with them
     db.query("SELECT patient_id, primary_physician_id FROM patient WHERE user_id = ?", [user_id], (err, rows) => {
         if (err || !rows.length) return res.status(500).json({ message: "Patient not found" });
 
@@ -236,21 +236,30 @@ const assignCare = (req, res) => {
             (err2) => {
                 if (err2) return res.status(500).json({ message: "Could not assign care team" });
 
-                // If changing physicians, cancel any Requested referrals (not yet issued)
-                // Issued/Accepted/Scheduled referrals stay valid — already in progress
-                if (isChanging) {
+                if (!isChanging) return res.json({ message: "Care team assigned successfully", physicianChanged: false });
+
+                // Cancel pending (Requested) referrals with old physician
+                db.query(
+                    `UPDATE referral
+                     SET referral_status_id = (SELECT referral_status_id FROM referral_status WHERE referral_status_name = 'Expired')
+                     WHERE patient_id = ? AND primary_physician_id = ?
+                       AND referral_status_id = (SELECT referral_status_id FROM referral_status WHERE referral_status_name = 'Requested')`,
+                    [patient_id, oldPhysicianId],
+                    () => {}
+                );
+
+                // If patient chose to cancel upcoming appointments with old physician
+                if (cancelUpcoming) {
                     db.query(
-                        `UPDATE referral
-                         SET referral_status_id = (SELECT referral_status_id FROM referral_status WHERE referral_status_name = 'Expired')
-                         WHERE patient_id = ?
-                           AND primary_physician_id = ?
-                           AND referral_status_id = (SELECT referral_status_id FROM referral_status WHERE referral_status_name = 'Requested')`,
+                        `UPDATE appointment SET status_id = 3
+                         WHERE patient_id = ? AND physician_id = ?
+                           AND status_id = 1 AND appointment_date >= CURDATE()`,
                         [patient_id, oldPhysicianId],
-                        () => {} // fire and forget — don't block the response
+                        () => {}
                     );
                 }
 
-                res.json({ message: "Care team assigned successfully", physicianChanged: isChanging });
+                res.json({ message: "Care team assigned successfully", physicianChanged: true });
             }
         );
     });
