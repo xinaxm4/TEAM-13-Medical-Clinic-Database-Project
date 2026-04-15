@@ -1,0 +1,228 @@
+-- =====================================================
+-- Medical Clinic Database Triggers
+-- Team 13 - Medical Clinic Database Project
+-- =====================================================
+
+USE medical_clinic;
+
+-- =====================================================
+-- TRIGGER 1: Auto-create Billing when Appointment Completed
+-- 
+-- Business Rule: When a physician marks an appointment as 'Completed',
+-- the system automatically creates a billing record using:
+--   - Base cost based on appointment type
+--   - Patient's insurance coverage percentage
+--   - Calculates insurance paid amount and patient owed
+-- =====================================================
+
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS after_appointment_completed$$
+
+CREATE TRIGGER after_appointment_completed
+AFTER UPDATE ON appointment
+FOR EACH ROW
+BEGIN
+    DECLARE v_base_cost DECIMAL(10,2);
+    DECLARE v_coverage DECIMAL(5,2);
+    DECLARE v_insurance_id INT;
+    DECLARE v_ins_paid DECIMAL(10,2);
+    DECLARE v_patient_owed DECIMAL(10,2);
+    
+    -- Check if status changed to Completed (status_id = 2)
+    IF NEW.status_id = 2 AND OLD.status_id != 2 THEN
+        
+        -- Check if billing record already exists to prevent duplicates
+        IF NOT EXISTS (SELECT 1 FROM billing WHERE appointment_id = NEW.appointment_id) THEN
+            
+            -- Calculate base cost based on appointment type
+            CASE NEW.appointment_type
+                WHEN 'Physical' THEN SET v_base_cost = 200.00;
+                WHEN 'Specialist' THEN SET v_base_cost = 250.00;
+                WHEN 'Follow-Up' THEN SET v_base_cost = 125.00;
+                ELSE SET v_base_cost = 150.00;  -- General
+            END CASE;
+            
+            -- Get patient's insurance coverage percentage and insurance_id
+            SELECT COALESCE(i.coverage_percentage, 0), p.insurance_id
+            INTO v_coverage, v_insurance_id
+            FROM patient p
+            LEFT JOIN insurance i ON p.insurance_id = i.insurance_id
+            WHERE p.patient_id = NEW.patient_id;
+            
+            -- Calculate insurance paid and patient owed
+            SET v_ins_paid = ROUND(v_base_cost * (v_coverage / 100), 2);
+            SET v_patient_owed = v_base_cost - v_ins_paid;
+            
+            -- Insert billing record with due date 30 days from today
+            INSERT INTO billing (
+                appointment_id,
+                patient_id,
+                insurance_id,
+                total_amount,
+                insurance_paid_amount,
+                patient_owed,
+                payment_status,
+                due_date
+            ) VALUES (
+                NEW.appointment_id,
+                NEW.patient_id,
+                v_insurance_id,
+                v_base_cost,
+                v_ins_paid,
+                v_patient_owed,
+                'Unpaid',
+                CURDATE() + INTERVAL 30 DAY
+            );
+            
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- TRIGGER 2: Log No-Show to Medical History
+-- 
+-- Business Rule: When an appointment is marked as 'No-Show',
+-- the system automatically logs this event in the patient's
+-- medical history for tracking and compliance purposes.
+-- =====================================================
+
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS after_appointment_noshow$$
+
+CREATE TRIGGER after_appointment_noshow
+AFTER UPDATE ON appointment
+FOR EACH ROW
+BEGIN
+    -- Check if status changed to No-Show (status_id = 4)
+    IF NEW.status_id = 4 AND OLD.status_id != 4 THEN
+        
+        -- Check if a no-show record already exists for this appointment
+        -- to prevent duplicate entries
+        IF NOT EXISTS (
+            SELECT 1 FROM medical_history 
+            WHERE patient_id = NEW.patient_id 
+            AND condition = 'No-Show'
+            AND diagnosis_date = NEW.appointment_date
+            AND notes LIKE CONCAT('%', NEW.appointment_date, '%')
+        ) THEN
+            
+            -- Insert no-show record into medical history
+            INSERT INTO medical_history (
+                patient_id,
+                physician_id,
+                `condition`,
+                diagnosis_date,
+                status,
+                notes
+            ) VALUES (
+                NEW.patient_id,
+                NEW.physician_id,
+                'No-Show',
+                NEW.appointment_date,
+                'Active',
+                CONCAT(
+                    'Patient did not attend scheduled appointment on ',
+                    NEW.appointment_date,
+                    ' at ',
+                    NEW.appointment_time,
+                    '. Reason for visit was: ',
+                    IFNULL(NEW.reason_for_visit, 'not specified'),
+                    '. Appointment type: ',
+                    NEW.appointment_type
+                )
+            );
+            
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- VERIFICATION QUERIES FOR TRIGGERS
+-- Run these to verify triggers are working correctly
+-- =====================================================
+
+-- Verify Trigger 1:
+-- To test, run this update and then check billing table:
+-- UPDATE appointment SET status_id = 2 WHERE appointment_id = 6;
+-- SELECT * FROM billing WHERE appointment_id = 6;
+-- SELECT * FROM appointment WHERE appointment_id = 6;
+
+-- Verify Trigger 2:
+-- To test, run this update and then check medical_history:
+-- UPDATE appointment SET status_id = 4 WHERE appointment_id = 9;
+-- SELECT * FROM medical_history WHERE condition = 'No-Show' ORDER BY history_id DESC;
+-- SELECT * FROM appointment WHERE appointment_id = 9;
+
+-- =====================================================
+-- OPTIONAL TRIGGER 3: Audit Log for Appointment Status Changes
+-- (Bonus - demonstrates additional trigger capability)
+-- =====================================================
+
+-- Create audit log table
+CREATE TABLE IF NOT EXISTS appointment_audit_log (
+    log_id INT PRIMARY KEY AUTO_INCREMENT,
+    appointment_id INT NOT NULL,
+    old_status_id INT,
+    new_status_id INT,
+    changed_by VARCHAR(100),
+    change_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_appointment_id (appointment_id)
+);
+
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS after_appointment_status_change$$
+
+CREATE TRIGGER after_appointment_status_change
+AFTER UPDATE ON appointment
+FOR EACH ROW
+BEGIN
+    -- Log status changes for audit trail
+    IF OLD.status_id != NEW.status_id THEN
+        INSERT INTO appointment_audit_log (
+            appointment_id,
+            old_status_id,
+            new_status_id,
+            changed_by
+        ) VALUES (
+            NEW.appointment_id,
+            OLD.status_id,
+            NEW.status_id,
+            USER()
+        );
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- TRIGGER DEMO SCRIPT
+-- Run these commands to demonstrate triggers to professor
+-- =====================================================
+
+-- DEMO 1: Show Trigger 1 (Auto-create Billing)
+-- Before: Check no billing record exists
+-- SELECT * FROM billing WHERE appointment_id = 15;
+
+-- Run trigger
+-- UPDATE appointment SET status_id = 2 WHERE appointment_id = 15;
+
+-- After: Check billing record was auto-created
+-- SELECT * FROM billing WHERE appointment_id = 15;
+-- SELECT * FROM appointment WHERE appointment_id = 15;
+
+-- DEMO 2: Show Trigger 2 (No-Show to Medical History)
+-- Before: Check no no-show record exists for this appointment
+-- SELECT * FROM medical_history WHERE condition = 'No-Show' AND diagnosis_date = '2026-04-08';
+
+-- Run trigger
+-- UPDATE appointment SET status_id = 4 WHERE appointment_id = 9;
+
+-- After: Check medical history has no-show entry
+-- SELECT * FROM medical_history WHERE condition = 'No-Show' ORDER BY history_id DESC;
