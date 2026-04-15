@@ -788,24 +788,23 @@ async function openBookingModal() {
         document.getElementById(id).classList.toggle("hidden", i !== 0);
     });
 
-    // Populate physician dropdown — default to primary physician + others in same city
+    // Only show the patient's assigned primary physician
+    // Specialists can only be booked through an accepted referral
     const phSelect = document.getElementById("b_physician");
     phSelect.innerHTML = '<option value="">Loading…</option>';
+    phSelect.disabled = false;
     try {
-        const city = _patientCity || "";
-        const r = await fetch(`/api/patient/care/physicians?city=${encodeURIComponent(city)}&user_id=${user.id}`);
-        const physicians = await r.json();
-        // Also load specialists
-        const r2 = await fetch(`/api/patient/referral/specialists?city=${encodeURIComponent(city)}&user_id=${user.id}`);
-        const specialists = await r2.json();
-        const all = [...physicians, ...specialists];
-        if (!all.length) {
-            phSelect.innerHTML = '<option value="">No physicians found — update your city in profile</option>';
+        const profileRes = await fetch(`/api/patient/dashboard?user_id=${user.id}`);
+        const profileData = await profileRes.json();
+        const patient = profileData.patient;
+        if (patient && patient.primary_physician_id && patient.doc_last) {
+            phSelect.innerHTML = `<option value="${patient.primary_physician_id}">Dr. ${patient.doc_first} ${patient.doc_last} — ${patient.specialty}</option>`;
+            phSelect.value = patient.primary_physician_id;
+            phSelect.disabled = true; // only one option — lock it
         } else {
-            phSelect.innerHTML = '<option value="">Select a physician…</option>' +
-                all.map(p => `<option value="${p.physician_id}">Dr. ${p.first_name} ${p.last_name} — ${p.specialty}</option>`).join("");
+            phSelect.innerHTML = '<option value="">No primary physician assigned — set up your care team first</option>';
         }
-    } catch(e) { phSelect.innerHTML = '<option value="">Could not load physicians</option>'; }
+    } catch(e) { phSelect.innerHTML = '<option value="">Could not load physician</option>'; }
 
     // Set min date on date picker
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
