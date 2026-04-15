@@ -77,26 +77,26 @@ INSERT IGNORE INTO department (department_id, department_name, description, clin
   (6,  'Neurology',         'Brain, spinal cord, and nervous system conditions',                   3),
   (11, 'Geriatrics',        'Specialized primary care for patients 65 and older',                  3),
   (12, 'Endocrinology',     'Diabetes, thyroid disorders, and hormonal conditions',                3),
-  -- San Antonio (clinic 4)
+  -- New York (clinic 4)
   (13, 'Family Medicine',   'Comprehensive primary care for all ages and conditions',              4),
   (14, 'Internal Medicine', 'Chronic disease management, diagnostics, and preventive wellness',    4),
   (15, 'Oncology',          'Cancer diagnosis, chemotherapy, radiation coordination, and care',    4),
   (16, 'Rheumatology',      'Arthritis, autoimmune diseases, and musculoskeletal disorders',       4),
-  -- Fort Worth (clinic 5)
+  -- Chicago (clinic 5)
   (17, 'Family Medicine',   'Comprehensive primary care for all ages and conditions',              5),
   (18, 'General Practice',  'Primary care and preventive medicine for all ages',                   5),
   (19, 'Cardiology',        'Heart disease prevention, diagnostics, and treatment',                5),
   (20, 'Pulmonology',       'Lung disease, asthma, COPD, and respiratory care',                    5),
-  -- Plano (clinic 6)
+  -- Los Angeles (clinic 6)
   (21, 'Internal Medicine', 'Chronic disease management, diagnostics, and preventive wellness',    6),
   (22, 'Family Medicine',   'Comprehensive primary care for all ages and conditions',               6),
   (23, 'Orthopedics',       'Joint replacement, sports medicine, and spine care',                  6),
   (24, 'Urology',           'Kidney, bladder, and urinary tract conditions',                       6),
-  -- El Paso (clinic 7)
+  -- Phoenix (clinic 7)
   (25, 'General Practice',  'Primary care and preventive medicine for all ages',                   7),
   (26, 'Family Medicine',   'Comprehensive primary care for all ages and conditions',               7),
   (27, 'Neurology',         'Brain, spinal cord, and nervous system conditions',                    7),
-  -- Corpus Christi (clinic 8)
+  -- Seattle (clinic 8)
   (28, 'Family Medicine',   'Comprehensive primary care for all ages and conditions',               8),
   (29, 'Internal Medicine', 'Chronic disease management, diagnostics, and preventive wellness',     8),
   (30, 'Pulmonology',       'Lung disease, asthma, COPD, and respiratory care',                     8);
@@ -353,3 +353,231 @@ INSERT IGNORE INTO billing (bill_id, appointment_id, patient_id, insurance_id, t
 INSERT IGNORE INTO referral (referral_id, patient_id, primary_physician_id, specialist_id, date_issued, expiration_date, referral_status_id, referral_reason, specialist_appointment_id) VALUES
   (1, 2, 3, 4, '2026-04-20', '2026-07-20', 5, 'Persistent hypertension with possible cardiac involvement. Cardiology evaluation requested.', 5),
   (2, 1, 1, 2, '2026-04-25', '2026-07-25', 1, 'Knee pain on exertion for 3 months. Orthopedic assessment needed.', NULL);
+-- ============================================================
+--  Audit Trail Health — Seed Expansion
+--  Adds more physicians per city, realistic specialty distribution,
+--  and fixes area codes for non-Texas clinics.
+--  Safe to re-run: uses INSERT IGNORE + UPDATE.
+-- ============================================================
+
+-- ─── Fix area codes for non-Texas physicians (13–30) ────────
+UPDATE physician SET phone_number = '(212) 555-0305' WHERE physician_id = 13;
+UPDATE physician SET phone_number = '(212) 555-0306' WHERE physician_id = 14;
+UPDATE physician SET phone_number = '(212) 555-0307' WHERE physician_id = 15;
+UPDATE physician SET phone_number = '(212) 555-0308' WHERE physician_id = 16;
+UPDATE physician SET phone_number = '(312) 555-0305' WHERE physician_id = 17;
+UPDATE physician SET phone_number = '(312) 555-0306' WHERE physician_id = 18;
+UPDATE physician SET phone_number = '(312) 555-0307' WHERE physician_id = 19;
+UPDATE physician SET phone_number = '(312) 555-0308' WHERE physician_id = 20;
+UPDATE physician SET phone_number = '(310) 555-0305' WHERE physician_id = 21;
+UPDATE physician SET phone_number = '(310) 555-0306' WHERE physician_id = 22;
+UPDATE physician SET phone_number = '(310) 555-0307' WHERE physician_id = 23;
+UPDATE physician SET phone_number = '(310) 555-0308' WHERE physician_id = 24;
+UPDATE physician SET phone_number = '(602) 555-0305' WHERE physician_id = 25;
+UPDATE physician SET phone_number = '(602) 555-0306' WHERE physician_id = 26;
+UPDATE physician SET phone_number = '(602) 555-0307' WHERE physician_id = 27;
+UPDATE physician SET phone_number = '(206) 555-0305' WHERE physician_id = 28;
+UPDATE physician SET phone_number = '(206) 555-0306' WHERE physician_id = 29;
+UPDATE physician SET phone_number = '(206) 555-0307' WHERE physician_id = 30;
+
+-- ─── New Departments (IDs 31–44) ────────────────────────────
+-- Real-world model: major hubs (NY, LA, Chicago) get broad specialist
+-- coverage. Regional clinics get 1-2 common specialties only.
+-- Rare specialties (Oncology, Rheumatology, Neurology) at 2-3 cities only.
+
+INSERT IGNORE INTO department (department_id, department_name, description, clinic_id) VALUES
+  -- Dallas additions
+  (31, 'Cardiology',      'Heart disease prevention, diagnostics, and treatment',                 1),
+  (32, 'Dermatology',     'Skin, hair, and nail conditions including cancer screening',            1),
+  -- Houston additions
+  (33, 'Oncology',        'Cancer diagnosis, chemotherapy, radiation coordination, and care',     2),
+  (34, 'Gastroenterology','Digestive system disorders, endoscopy, and liver care',                2),
+  -- New York additions (major hub — broad coverage)
+  (35, 'Cardiology',      'Heart disease prevention, diagnostics, and treatment',                 4),
+  (36, 'Gastroenterology','Digestive system disorders, endoscopy, and liver care',                4),
+  (37, 'Neurology',       'Brain, spinal cord, and nervous system conditions',                    4),
+  -- Chicago additions
+  (38, 'Gastroenterology','Digestive system disorders, endoscopy, and liver care',                5),
+  (39, 'Dermatology',     'Skin, hair, and nail conditions including cancer screening',            5),
+  -- LA additions (major hub — broad coverage)
+  (40, 'Dermatology',     'Skin, hair, and nail conditions including cancer screening',            6),
+  (41, 'Endocrinology',   'Diabetes, thyroid disorders, and hormonal conditions',                 6),
+  (42, 'Rheumatology',    'Arthritis, autoimmune diseases, and musculoskeletal disorders',        6),
+  -- Phoenix additions
+  (43, 'Endocrinology',   'Diabetes, thyroid disorders, and hormonal conditions',                 7),
+  (44, 'Pulmonology',     'Lung disease, asthma, COPD, and respiratory care',                     7),
+  -- Seattle additions
+  (45, 'Oncology',        'Cancer diagnosis, chemotherapy, radiation coordination, and care',     8),
+  (46, 'Neurology',       'Brain, spinal cord, and nervous system conditions',                    8);
+
+-- ─── New Physicians (IDs 31–63) ─────────────────────────────
+-- Distribution model:
+--   Dallas/Houston/Austin: 6 primary + 2-3 specialist each
+--   NY/Chicago/LA:         6 primary + 4-5 specialist each (major hubs)
+--   Phoenix/Seattle:       5 primary + 2-3 specialist each
+
+INSERT IGNORE INTO physician (physician_id, first_name, last_name, email, phone_number, specialty, department_id, hire_date, physician_type) VALUES
+  -- Dallas additions (office 1)
+  (31, 'Anthony',   'Reed',      'a.reed@audittrailhealth.com',      '(214) 555-0305', 'Family Medicine',    7,  '2021-03-01', 'primary'),
+  (32, 'Laura',     'Price',     'l.price@audittrailhealth.com',     '(214) 555-0306', 'Internal Medicine',  1,  '2018-07-15', 'primary'),
+  (33, 'Marcus',    'Allen',     'm.allen@audittrailhealth.com',     '(214) 555-0307', 'Cardiology',         31, '2016-04-01', 'specialist'),
+  (34, 'Stephanie', 'Cook',      's.cook@audittrailhealth.com',      '(214) 555-0308', 'Dermatology',        32, '2019-09-01', 'specialist'),
+  -- Houston additions (office 2)
+  (35, 'Daniel',    'Flores',    'd.flores@audittrailhealth.com',    '(713) 555-0305', 'Family Medicine',    3,  '2020-11-01', 'primary'),
+  (36, 'Nicole',    'Simmons',   'n.simmons@audittrailhealth.com',   '(713) 555-0306', 'Internal Medicine',  9,  '2017-06-15', 'primary'),
+  (37, 'Victor',    'Huang',     'v.huang@audittrailhealth.com',     '(713) 555-0307', 'Oncology',           33, '2015-09-01', 'specialist'),
+  (38, 'Melissa',   'Jordan',    'm.jordan@audittrailhealth.com',    '(713) 555-0308', 'Gastroenterology',   34, '2018-02-01', 'specialist'),
+  -- Austin additions (office 3)
+  (39, 'Steven',    'Perry',     's.perry@audittrailhealth.com',     '(512) 555-0305', 'General Practice',   5,  '2022-01-10', 'primary'),
+  (40, 'Kimberly',  'Ross',      'k.ross@audittrailhealth.com',      '(512) 555-0306', 'Geriatrics',         11, '2019-05-01', 'primary'),
+  -- New York additions (office 4) — major hub
+  (41, 'Jonathan',  'Wallace',   'j.wallace@audittrailhealth.com',   '(212) 555-0309', 'Family Medicine',    13, '2018-03-01', 'primary'),
+  (42, 'Christine', 'Bennett',   'c.bennett@audittrailhealth.com',   '(212) 555-0310', 'Internal Medicine',  14, '2020-07-01', 'primary'),
+  (43, 'Raymond',   'Diaz',      'r.diaz@audittrailhealth.com',      '(212) 555-0311', 'Family Medicine',    13, '2016-11-01', 'primary'),
+  (44, 'Natalie',   'Wu',        'n.wu@audittrailhealth.com',        '(212) 555-0312', 'Internal Medicine',  14, '2021-04-15', 'primary'),
+  (45, 'Gregory',   'Vasquez',   'g.vasquez@audittrailhealth.com',   '(212) 555-0313', 'Cardiology',         35, '2015-06-01', 'specialist'),
+  (46, 'Helen',     'Nguyen',    'h.nguyen@audittrailhealth.com',    '(212) 555-0314', 'Gastroenterology',   36, '2017-10-01', 'specialist'),
+  (47, 'Patrick',   'Morales',   'p.morales@audittrailhealth.com',   '(212) 555-0315', 'Neurology',          37, '2019-01-15', 'specialist'),
+  -- Chicago additions (office 5)
+  (48, 'Vanessa',   'Griffin',   'v.griffin@audittrailhealth.com',   '(312) 555-0309', 'Family Medicine',    17, '2021-08-01', 'primary'),
+  (49, 'Eric',      'Stone',     'e.stone@audittrailhealth.com',     '(312) 555-0310', 'General Practice',   18, '2019-02-15', 'primary'),
+  (50, 'Tamara',    'Owens',     't.owens@audittrailhealth.com',     '(312) 555-0311', 'Gastroenterology',   38, '2016-08-01', 'specialist'),
+  (51, 'Derek',     'Murphy',    'd.murphy@audittrailhealth.com',    '(312) 555-0312', 'Dermatology',        39, '2020-03-01', 'specialist'),
+  -- LA additions (office 6) — major hub
+  (52, 'Alicia',    'Castillo',  'a.castillo@audittrailhealth.com',  '(310) 555-0309', 'Internal Medicine',  21, '2018-05-01', 'primary'),
+  (53, 'Trevor',    'Hoffman',   't.hoffman@audittrailhealth.com',   '(310) 555-0310', 'Family Medicine',    22, '2020-10-01', 'primary'),
+  (54, 'Jasmine',   'Reyes',     'j.reyes@audittrailhealth.com',     '(310) 555-0311', 'Internal Medicine',  21, '2017-01-15', 'primary'),
+  (55, 'Wesley',    'Cunningham','w.cunningham@audittrailhealth.com','(310) 555-0312', 'Dermatology',        40, '2015-11-01', 'specialist'),
+  (56, 'Olivia',    'Park',      'o.park@audittrailhealth.com',      '(310) 555-0313', 'Endocrinology',      41, '2018-09-01', 'specialist'),
+  (57, 'Brandon',   'Yates',     'b.yates@audittrailhealth.com',     '(310) 555-0314', 'Rheumatology',       42, '2016-06-01', 'specialist'),
+  -- Phoenix additions (office 7)
+  (58, 'Erica',     'Watts',     'e.watts@audittrailhealth.com',     '(602) 555-0308', 'General Practice',   25, '2021-06-01', 'primary'),
+  (59, 'Marcus',    'Fleming',   'm.fleming@audittrailhealth.com',   '(602) 555-0309', 'Family Medicine',    26, '2019-08-15', 'primary'),
+  (60, 'Hannah',    'Cross',     'h.cross@audittrailhealth.com',     '(602) 555-0310', 'Endocrinology',      43, '2017-04-01', 'specialist'),
+  (61, 'Jerome',    'Tran',      'j.tran@audittrailhealth.com',      '(602) 555-0311', 'Pulmonology',        44, '2020-01-15', 'specialist'),
+  -- Seattle additions (office 8)
+  (62, 'Audrey',    'Manning',   'a.manning@audittrailhealth.com',   '(206) 555-0308', 'Family Medicine',    28, '2022-03-01', 'primary'),
+  (63, 'Calvin',    'Holt',      'c.holt@audittrailhealth.com',      '(206) 555-0309', 'Internal Medicine',  29, '2019-07-01', 'primary'),
+  (64, 'Renee',     'Stanton',   'r.stanton@audittrailhealth.com',   '(206) 555-0310', 'Oncology',           45, '2016-10-01', 'specialist'),
+  (65, 'Miles',     'Egan',      'm.egan@audittrailhealth.com',      '(206) 555-0311', 'Neurology',          46, '2018-12-01', 'specialist');
+
+-- ─── New Work Schedules (IDs 69–142) ─────────────────────────
+INSERT IGNORE INTO work_schedule (schedule_id, physician_id, office_id, day_of_week, start_time, end_time) VALUES
+  -- Dallas new (31–34)
+  (69,  31, 1, 'Monday',    '08:00:00', '17:00:00'),
+  (70,  31, 1, 'Thursday',  '08:00:00', '17:00:00'),
+  (71,  32, 1, 'Tuesday',   '08:00:00', '17:00:00'),
+  (72,  32, 1, 'Friday',    '08:00:00', '17:00:00'),
+  (73,  33, 1, 'Wednesday', '09:00:00', '17:00:00'),
+  (74,  33, 1, 'Friday',    '09:00:00', '17:00:00'),
+  (75,  34, 1, 'Tuesday',   '09:00:00', '17:00:00'),
+  (76,  34, 1, 'Thursday',  '09:00:00', '17:00:00'),
+  -- Houston new (35–38)
+  (77,  35, 2, 'Monday',    '08:00:00', '17:00:00'),
+  (78,  35, 2, 'Wednesday', '08:00:00', '17:00:00'),
+  (79,  36, 2, 'Tuesday',   '08:00:00', '17:00:00'),
+  (80,  36, 2, 'Thursday',  '08:00:00', '17:00:00'),
+  (81,  37, 2, 'Wednesday', '09:00:00', '17:00:00'),
+  (82,  37, 2, 'Friday',    '09:00:00', '17:00:00'),
+  (83,  38, 2, 'Monday',    '09:00:00', '17:00:00'),
+  (84,  38, 2, 'Thursday',  '09:00:00', '17:00:00'),
+  -- Austin new (39–40)
+  (85,  39, 3, 'Monday',    '08:00:00', '17:00:00'),
+  (86,  39, 3, 'Friday',    '08:00:00', '17:00:00'),
+  (87,  40, 3, 'Wednesday', '08:00:00', '17:00:00'),
+  (88,  40, 3, 'Friday',    '08:00:00', '17:00:00'),
+  -- New York new (41–47)
+  (89,  41, 4, 'Monday',    '08:00:00', '17:00:00'),
+  (90,  41, 4, 'Wednesday', '08:00:00', '17:00:00'),
+  (91,  42, 4, 'Tuesday',   '08:00:00', '17:00:00'),
+  (92,  42, 4, 'Thursday',  '08:00:00', '17:00:00'),
+  (93,  43, 4, 'Monday',    '08:00:00', '17:00:00'),
+  (94,  43, 4, 'Friday',    '08:00:00', '17:00:00'),
+  (95,  44, 4, 'Tuesday',   '08:00:00', '17:00:00'),
+  (96,  44, 4, 'Wednesday', '08:00:00', '17:00:00'),
+  (97,  45, 4, 'Monday',    '09:00:00', '17:00:00'),
+  (98,  45, 4, 'Thursday',  '09:00:00', '17:00:00'),
+  (99,  46, 4, 'Tuesday',   '09:00:00', '17:00:00'),
+  (100, 46, 4, 'Friday',    '09:00:00', '17:00:00'),
+  (101, 47, 4, 'Wednesday', '09:00:00', '17:00:00'),
+  (102, 47, 4, 'Friday',    '09:00:00', '17:00:00'),
+  -- Chicago new (48–51)
+  (103, 48, 5, 'Monday',    '08:00:00', '17:00:00'),
+  (104, 48, 5, 'Thursday',  '08:00:00', '17:00:00'),
+  (105, 49, 5, 'Tuesday',   '08:00:00', '17:00:00'),
+  (106, 49, 5, 'Friday',    '08:00:00', '17:00:00'),
+  (107, 50, 5, 'Monday',    '09:00:00', '17:00:00'),
+  (108, 50, 5, 'Wednesday', '09:00:00', '17:00:00'),
+  (109, 51, 5, 'Tuesday',   '09:00:00', '17:00:00'),
+  (110, 51, 5, 'Thursday',  '09:00:00', '17:00:00'),
+  -- LA new (52–57)
+  (111, 52, 6, 'Monday',    '08:00:00', '17:00:00'),
+  (112, 52, 6, 'Wednesday', '08:00:00', '17:00:00'),
+  (113, 53, 6, 'Tuesday',   '08:00:00', '17:00:00'),
+  (114, 53, 6, 'Thursday',  '08:00:00', '17:00:00'),
+  (115, 54, 6, 'Wednesday', '08:00:00', '17:00:00'),
+  (116, 54, 6, 'Friday',    '08:00:00', '17:00:00'),
+  (117, 55, 6, 'Monday',    '09:00:00', '17:00:00'),
+  (118, 55, 6, 'Thursday',  '09:00:00', '17:00:00'),
+  (119, 56, 6, 'Tuesday',   '09:00:00', '17:00:00'),
+  (120, 56, 6, 'Friday',    '09:00:00', '17:00:00'),
+  (121, 57, 6, 'Wednesday', '09:00:00', '17:00:00'),
+  (122, 57, 6, 'Friday',    '09:00:00', '17:00:00'),
+  -- Phoenix new (58–61)
+  (123, 58, 7, 'Monday',    '08:00:00', '17:00:00'),
+  (124, 58, 7, 'Wednesday', '08:00:00', '17:00:00'),
+  (125, 59, 7, 'Tuesday',   '08:00:00', '17:00:00'),
+  (126, 59, 7, 'Thursday',  '08:00:00', '17:00:00'),
+  (127, 60, 7, 'Monday',    '09:00:00', '17:00:00'),
+  (128, 60, 7, 'Thursday',  '09:00:00', '17:00:00'),
+  (129, 61, 7, 'Wednesday', '09:00:00', '17:00:00'),
+  (130, 61, 7, 'Friday',    '09:00:00', '17:00:00'),
+  -- Seattle new (62–65)
+  (131, 62, 8, 'Monday',    '08:00:00', '17:00:00'),
+  (132, 62, 8, 'Wednesday', '08:00:00', '17:00:00'),
+  (133, 63, 8, 'Tuesday',   '08:00:00', '17:00:00'),
+  (134, 63, 8, 'Thursday',  '08:00:00', '17:00:00'),
+  (135, 64, 8, 'Monday',    '09:00:00', '17:00:00'),
+  (136, 64, 8, 'Wednesday', '09:00:00', '17:00:00'),
+  (137, 65, 8, 'Tuesday',   '09:00:00', '17:00:00'),
+  (138, 65, 8, 'Friday',    '09:00:00', '17:00:00');
+
+-- ─── New Users (IDs 44–77) ───────────────────────────────────
+-- Doctor@123 → $2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6
+
+INSERT IGNORE INTO users (user_id, username, password_hash, role, physician_id, staff_id) VALUES
+  (44, 'dr.reed',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 31, NULL),
+  (45, 'dr.price',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 32, NULL),
+  (46, 'dr.allen',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 33, NULL),
+  (47, 'dr.cook',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 34, NULL),
+  (48, 'dr.flores',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 35, NULL),
+  (49, 'dr.simmons',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 36, NULL),
+  (50, 'dr.huang',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 37, NULL),
+  (51, 'dr.mjordan',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 38, NULL),
+  (52, 'dr.perry',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 39, NULL),
+  (53, 'dr.kross',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 40, NULL),
+  (54, 'dr.wallace',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 41, NULL),
+  (55, 'dr.bennett',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 42, NULL),
+  (56, 'dr.diaz',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 43, NULL),
+  (57, 'dr.nwu',        '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 44, NULL),
+  (58, 'dr.vasquez',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 45, NULL),
+  (59, 'dr.hnguyen',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 46, NULL),
+  (60, 'dr.morales',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 47, NULL),
+  (61, 'dr.griffin',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 48, NULL),
+  (62, 'dr.stone',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 49, NULL),
+  (63, 'dr.owens',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 50, NULL),
+  (64, 'dr.murphy',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 51, NULL),
+  (65, 'dr.castillo',   '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 52, NULL),
+  (66, 'dr.hoffman',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 53, NULL),
+  (67, 'dr.reyes',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 54, NULL),
+  (68, 'dr.cunningham', '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 55, NULL),
+  (69, 'dr.opark',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 56, NULL),
+  (70, 'dr.yates',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 57, NULL),
+  (71, 'dr.watts',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 58, NULL),
+  (72, 'dr.fleming',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 59, NULL),
+  (73, 'dr.cross',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 60, NULL),
+  (74, 'dr.tran',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 61, NULL),
+  (75, 'dr.manning',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 62, NULL),
+  (76, 'dr.holt',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 63, NULL),
+  (77, 'dr.stanton',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 64, NULL),
+  (78, 'dr.egan',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 65, NULL);
