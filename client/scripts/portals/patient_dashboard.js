@@ -452,24 +452,42 @@ async function submitCareSetup() {
                 new Date(a.appointment_date) >= new Date()
             );
 
-            // Build appointment list for the warning
+            // Detect location change
+            const oldCity = patient.city || "";
+            const newCity = document.getElementById("care_city") ? document.getElementById("care_city").value : "";
+            const locationChanging = newCity && oldCity && newCity.toLowerCase() !== oldCity.toLowerCase();
+
+            // Build warning content
             const apptListEl = document.getElementById("careChangeAppts");
             if (apptListEl) {
+                let html = "";
+
+                if (locationChanging) {
+                    html += `
+                        <div style="font-size:13px;color:#7f1d1d;font-weight:600;margin-bottom:4px">Location change: ${oldCity} &rarr; ${newCity}</div>
+                        <div style="font-size:12px;color:#7f1d1d;margin-bottom:10px;line-height:1.5">
+                            Your new physician is in a different city. All future appointments will be at the ${newCity} clinic.
+                            Any active specialist referrals tied to your old location remain valid until they expire.
+                        </div>`;
+                }
+
                 if (upcoming.length > 0) {
-                    apptListEl.innerHTML = `
-                        <div style="margin:8px 0 4px;font-size:13px;color:#7f1d1d;font-weight:600">
+                    html += `
+                        <div style="font-size:13px;color:#7f1d1d;font-weight:600;margin-bottom:4px">
                             You have ${upcoming.length} upcoming appointment${upcoming.length > 1 ? "s" : ""} with Dr. ${patient.doc_last}:
                         </div>
                         <ul style="margin:4px 0 10px 16px;font-size:12px;color:#7f1d1d">
-                            ${upcoming.map(a => `<li>${fmt(a.appointment_date)} — ${a.reason_for_visit || "Visit"}</li>`).join("")}
+                            ${upcoming.map(a => `<li>${fmt(a.appointment_date)} — ${a.reason_for_visit || "Visit"} (${a.city || oldCity})</li>`).join("")}
                         </ul>
                         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#7f1d1d;cursor:pointer">
                             <input type="checkbox" id="cancelUpcomingCheck">
                             Cancel these appointments and rebook with my new physician
                         </label>`;
                 } else {
-                    apptListEl.innerHTML = `<div style="font-size:13px;color:#7f1d1d;margin-bottom:6px">You have no upcoming appointments with your current physician.</div>`;
+                    html += `<div style="font-size:13px;color:#7f1d1d;margin-bottom:6px">You have no upcoming appointments with your current physician.</div>`;
                 }
+
+                apptListEl.innerHTML = html;
             }
 
             confirmEl.style.display = "";
@@ -483,7 +501,8 @@ async function submitCareSetup() {
     // Reset confirm state
     if (confirmEl) { confirmEl.style.display = "none"; confirmEl.dataset.shown = "false"; }
 
-    const cancelUpcoming = document.getElementById("cancelUpcomingCheck") && document.getElementById("cancelUpcomingCheck").checked;
+    const cancelUpcoming = !!(document.getElementById("cancelUpcomingCheck") && document.getElementById("cancelUpcomingCheck").checked);
+    const newCity = document.getElementById("care_city") ? document.getElementById("care_city").value : null;
 
     msg.className = "modal-save-msg";
     msg.textContent = "Saving…";
@@ -492,14 +511,19 @@ async function submitCareSetup() {
         const r = await fetch("/api/patient/care/assign", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_id: user.id, physician_id, insurance_id: insurance_id || null, cancelUpcoming })
+            body: JSON.stringify({ user_id: user.id, physician_id, insurance_id: insurance_id || null, cancelUpcoming, city: newCity || null })
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message || "Failed to assign care team");
         msg.className = "modal-save-msg success";
-        msg.textContent = data.physicianChanged
-            ? "Physician changed. Pending referrals cancelled." + (cancelUpcoming ? " Upcoming appointments cancelled." : "")
-            : "Care team saved.";
+        if (data.physicianChanged) {
+            let successMsg = "Physician updated.";
+            if (newCity) successMsg += ` Your clinic location is now ${newCity}.`;
+            if (cancelUpcoming) successMsg += " Upcoming appointments with your previous physician have been cancelled.";
+            msg.textContent = successMsg;
+        } else {
+            msg.textContent = "Care team saved.";
+        }
         setTimeout(() => {
             closeCareModal();
             loadDashboard();

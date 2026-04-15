@@ -219,7 +219,7 @@ const getInsuranceOptions = (req, res) => {
 
 /* PUT /api/patient/care/assign */
 const assignCare = (req, res) => {
-    const { user_id, physician_id, insurance_id, cancelUpcoming } = req.body;
+    const { user_id, physician_id, insurance_id, cancelUpcoming, city } = req.body;
     if (!user_id || !physician_id) return res.status(400).json({ message: "user_id and physician_id required" });
 
     // Get current physician + any upcoming scheduled appointments with them
@@ -229,10 +229,15 @@ const assignCare = (req, res) => {
         const { patient_id, primary_physician_id: oldPhysicianId } = rows[0];
         const isChanging = oldPhysicianId && String(oldPhysicianId) !== String(physician_id);
 
-        // Update the physician + insurance
-        db.query(
-            "UPDATE patient SET primary_physician_id = ?, insurance_id = ? WHERE user_id = ?",
-            [physician_id, insurance_id || null, user_id],
+        // Update the physician + insurance + city if provided
+        const updateFields = city
+            ? "UPDATE patient SET primary_physician_id = ?, insurance_id = ?, city = ? WHERE user_id = ?"
+            : "UPDATE patient SET primary_physician_id = ?, insurance_id = ? WHERE user_id = ?";
+        const updateParams = city
+            ? [physician_id, insurance_id || null, city, user_id]
+            : [physician_id, insurance_id || null, user_id];
+
+        db.query(updateFields, updateParams,
             (err2) => {
                 if (err2) return res.status(500).json({ message: "Could not assign care team" });
 
