@@ -339,31 +339,61 @@
 
         <!-- ── Appointments Section ── -->
         <div class="page-section hidden" id="sec-appointments">
-            <!-- Upcoming -->
-            <div class="section-block" style="margin-bottom:24px">
-                <div class="section-block-header">
-                    <div><h3>Upcoming Appointments</h3><p>Scheduled visits</p></div>
+
+            <!-- Filter bar -->
+            <div class="section-block" style="margin-bottom:24px;padding:0">
+                <div style="padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                    <div>
+                        <h3 style="font-size:15px;font-weight:700;color:#1f2a6d;margin-bottom:2px">My Appointments</h3>
+                        <p style="font-size:12px;color:#aaa" id="apptFilterCount">All appointments</p>
+                    </div>
                     <button class="profile-edit-btn" onclick="openBookingModal()">+ Book Appointment</button>
                 </div>
-                <table class="data-table">
-                    <thead>
-                        <tr><th>Date</th><th>Time</th><th>Physician</th><th>Location</th><th>Reason</th><th>Status</th><th>Action</th></tr>
-                    </thead>
-                    <tbody id="apptUpcomingBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
-                </table>
-            </div>
-
-            <!-- Past -->
-            <div class="section-block" style="margin-bottom:24px">
-                <div class="section-block-header">
-                    <div><h3>Past Appointments</h3><p>Completed, cancelled, and no-show visits</p></div>
+                <div class="filter-bar">
+                    <span class="filter-bar-label">Filter</span>
+                    <select class="filter-select" id="apptStatusFilter" onchange="applyApptFilters()">
+                        <option value="all">All Statuses</option>
+                        <option value="upcoming">Upcoming (Scheduled)</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="No-Show">No-Show</option>
+                    </select>
+                    <select class="filter-select" id="apptTypeFilter" onchange="applyApptFilters()">
+                        <option value="all">All Types</option>
+                        <option value="General">General</option>
+                        <option value="Physical">Physical / Annual</option>
+                        <option value="Follow-Up">Follow-Up</option>
+                        <option value="Specialist">Specialist</option>
+                    </select>
+                    <select class="filter-select" id="apptSortOrder" onchange="applyApptFilters()">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <input type="text" class="filter-search" id="apptSearch" placeholder="Search physician or reason…" oninput="applyApptFilters()">
+                    <button class="filter-reset-btn" id="apptResetBtn" onclick="resetApptFilters()">✕ Reset filters</button>
                 </div>
-                <table class="data-table">
-                    <thead>
-                        <tr><th>Date</th><th>Time</th><th>Physician</th><th>Location</th><th>Type</th><th>Status</th><th>Billing</th></tr>
-                    </thead>
-                    <tbody id="apptPastBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
-                </table>
+
+                <!-- Upcoming sub-table -->
+                <div id="apptUpcomingSection">
+                    <div style="padding:10px 20px 6px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2a6d;background:#f8fbff;border-top:1px solid #f0f2f8;border-bottom:1px solid #f0f2f8">
+                        Upcoming
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Date</th><th>Time</th><th>Physician</th><th>Location</th><th>Type</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody id="apptUpcomingBody"><tr><td colspan="8" class="table-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+
+                <!-- Past sub-table -->
+                <div id="apptPastSection" style="margin-top:0">
+                    <div style="padding:10px 20px 6px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;background:#fafbff;border-top:1px solid #f0f2f8;border-bottom:1px solid #f0f2f8">
+                        Past
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Date</th><th>Time</th><th>Physician</th><th>Location</th><th>Type</th><th>Status</th><th>Billing</th></tr></thead>
+                        <tbody id="apptPastBody"><tr><td colspan="7" class="table-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Referrals (merged from old nav) -->
@@ -386,39 +416,70 @@
             </div>
         </div>
 
-        <!-- ── Health Records Section (was Medical History) ── -->
+        <!-- ── Health Records Section ── -->
         <div class="page-section hidden" id="sec-history">
-            <!-- Active conditions -->
+
+            <!-- Current Medications -->
             <div class="section-block" style="margin-bottom:24px">
                 <div class="section-block-header">
-                    <div><h3>Active Conditions</h3><p>Current health conditions on your record</p></div>
+                    <div><h3>Current Medications &amp; Treatments</h3><p>Active prescriptions and treatment plans on file</p></div>
                 </div>
-                <div id="activeConditionsBody" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+                <div id="medicationsBody" style="padding:16px;display:flex;flex-direction:column;gap:12px">
                     <p class="table-empty">Loading…</p>
                 </div>
             </div>
 
-            <!-- Physician notes / visit summaries -->
-            <div class="section-block" style="margin-bottom:24px">
+            <!-- Conditions with filter bar -->
+            <div class="section-block" style="margin-bottom:24px;padding:0">
+                <div style="padding:16px 20px 0">
+                    <h3 style="font-size:15px;font-weight:700;color:#1f2a6d;margin-bottom:2px">Health Conditions</h3>
+                    <p style="font-size:12px;color:#aaa" id="histFilterCount">All conditions on record</p>
+                </div>
+                <div class="filter-bar">
+                    <span class="filter-bar-label">Filter</span>
+                    <select class="filter-select" id="histStatusFilter" onchange="applyHistFilters()">
+                        <option value="all">All Conditions</option>
+                        <option value="active">Active Only</option>
+                        <option value="resolved">Resolved Only</option>
+                    </select>
+                    <select class="filter-select" id="histSortOrder" onchange="applyHistFilters()">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <input type="text" class="filter-search" id="histSearch" placeholder="Search condition…" oninput="applyHistFilters()">
+                    <button class="filter-reset-btn" id="histResetBtn" onclick="resetHistFilters()">✕ Reset filters</button>
+                </div>
+
+                <!-- Active -->
+                <div id="activeConditionsSection">
+                    <div style="padding:10px 20px 6px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f2a6d;background:#f8fbff;border-top:1px solid #f0f2f8;border-bottom:1px solid #f0f2f8">
+                        Active
+                    </div>
+                    <div id="activeConditionsBody" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+                        <p class="table-empty">Loading…</p>
+                    </div>
+                </div>
+
+                <!-- Resolved -->
+                <div id="resolvedConditionsSection">
+                    <div style="padding:10px 20px 6px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;background:#fafbff;border-top:1px solid #f0f2f8;border-bottom:1px solid #f0f2f8">
+                        Resolved
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Condition</th><th>Date Added</th><th>Added By</th><th>Notes</th></tr></thead>
+                        <tbody id="resolvedHistoryBody"><tr><td colspan="4" class="table-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Visit Notes -->
+            <div class="section-block">
                 <div class="section-block-header">
                     <div><h3>Visit Notes &amp; Clinical Summaries</h3><p>Notes added by your care team after visits</p></div>
                 </div>
                 <div id="visitNotesBody" style="padding:16px;display:flex;flex-direction:column;gap:10px">
                     <p class="table-empty">Loading…</p>
                 </div>
-            </div>
-
-            <!-- Resolved -->
-            <div class="section-block">
-                <div class="section-block-header">
-                    <div><h3>Resolved Conditions</h3><p>Past conditions no longer active</p></div>
-                </div>
-                <table class="data-table">
-                    <thead>
-                        <tr><th>Condition</th><th>Date Added</th><th>Status</th><th>Notes</th></tr>
-                    </thead>
-                    <tbody id="resolvedHistoryBody"><tr><td colspan="4" class="table-empty">Loading…</td></tr></tbody>
-                </table>
             </div>
         </div>
 

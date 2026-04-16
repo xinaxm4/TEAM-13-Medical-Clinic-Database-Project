@@ -1257,3 +1257,137 @@ body {
 [data-theme="dark"] .referral-card-meta    { color: #3a3f6a; }
 [data-theme="dark"] .referral-card-reason  { color: #7880a8; }
 [data-theme="dark"] .referral-card-dates   { color: #2e3358; }
+
+/* ─── Filter bar — shared across all portals ───────────────── */
+.filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px 14px;
+    border-bottom: 1px solid #f0f2f8;
+    flex-wrap: wrap;
+}
+
+.filter-bar-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+.filter-select {
+    padding: 7px 28px 7px 10px;
+    border: 1.5px solid #e0e3ed;
+    border-radius: 7px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #444;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 9px center;
+    -webkit-appearance: none;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.filter-select:focus { border-color: #6ea8fe; }
+
+.filter-select.active-filter {
+    border-color: #6ea8fe;
+    background-color: #f0f6ff;
+    color: #1f2a6d;
+    font-weight: 600;
+}
+
+.filter-search {
+    flex: 1;
+    min-width: 160px;
+    max-width: 260px;
+    padding: 7px 12px 7px 32px;
+    border: 1.5px solid #e0e3ed;
+    border-radius: 7px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #333;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.filter-search:focus { border-color: #6ea8fe; }
+
+.filter-count-badge {
+    font-size: 11px;
+    color: #888;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.filter-reset-btn {
+    font-size: 11px;
+    color: #6ea8fe;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    padding: 4px 0;
+    display: none;
+}
+
+.filter-reset-btn.visible { display: inline; }
+
+/* Medication cards */
+.med-card {
+    border: 1px solid #e0e4f0;
+    border-left: 4px solid #10b981;
+    border-radius: 10px;
+    padding: 16px 20px;
+    background: white;
+}
+
+.med-card-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #065f46;
+    margin-bottom: 4px;
+}
+
+.med-card-detail {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.med-card-plan {
+    font-size: 13px;
+    color: #444;
+    background: #f0fdf4;
+    border-radius: 7px;
+    padding: 8px 12px;
+    line-height: 1.6;
+}
+
+.med-card-followup {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 11px;
+    background: #fffbeb;
+    color: #92400e;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-weight: 600;
+}
+
+/* Dark mode */
+[data-theme="dark"] .filter-bar      { border-bottom-color: #252948; }
+[data-theme="dark"] .filter-select   { background-color: #1a1d34; border-color: #252948; color: #c0c6e8; }
+[data-theme="dark"] .filter-search   { background-color: #1a1d34; border-color: #252948; color: #c0c6e8; }
+[data-theme="dark"] .filter-select.active-filter { background-color: #1c2248; border-color: #6ea8fe; color: #8ba4ff; }
+[data-theme="dark"] .med-card        { background: #1a1d34; border-color: #252948; border-left-color: #10b981; }
+[data-theme="dark"] .med-card-name   { color: #4ade80; }
+[data-theme="dark"] .med-card-plan   { background: #0e2318; color: #a7f3d0; }
+[data-theme="dark"] .med-card-detail { color: #3a3f6a; }

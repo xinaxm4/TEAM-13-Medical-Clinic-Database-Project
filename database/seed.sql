@@ -105,43 +105,43 @@ INSERT IGNORE INTO department (department_id, department_name, description, clin
 
 INSERT IGNORE INTO physician (physician_id, first_name, last_name, email, phone_number, specialty, department_id, hire_date, physician_type) VALUES
   -- Dallas (office 1)
-  (1,  'Emily',      'Johnson',   'e.johnson@audittrailhealth.com',   '(214) 555-0301', 'Internal Medicine', 1,  '2019-01-10', 'primary'),
-  (2,  'Maria',      'Garcia',    'm.garcia@audittrailhealth.com',    '(214) 555-0302', 'Orthopedics',       2,  '2018-03-15', 'specialist'),
-  (7,  'Michael',    'Chen',      'm.chen@audittrailhealth.com',      '(214) 555-0303', 'Family Medicine',   7,  '2020-06-01', 'primary'),
-  (8,  'Sarah',      'Kim',       's.kim@audittrailhealth.com',       '(214) 555-0304', 'Internal Medicine', 1,  '2017-09-15', 'primary'),
+  (1,  'Emily',      'Johnson',   'johnson@ath.doctor.com',   '(214) 555-0301', 'Internal Medicine', 1,  '2019-01-10', 'primary'),
+  (2,  'Maria',      'Garcia',    'garcia@ath.doctor.com',    '(214) 555-0302', 'Orthopedics',       2,  '2018-03-15', 'specialist'),
+  (7,  'Michael',    'Chen',      'chen@ath.doctor.com',      '(214) 555-0303', 'Family Medicine',   7,  '2020-06-01', 'primary'),
+  (8,  'Sarah',      'Kim',       'kim@ath.doctor.com',       '(214) 555-0304', 'Internal Medicine', 1,  '2017-09-15', 'primary'),
   -- Houston (office 2)
-  (3,  'Patricia',   'Moore',     'p.moore@audittrailhealth.com',     '(713) 555-0301', 'Family Medicine',   3,  '2015-04-01', 'primary'),
-  (4,  'Angela',     'White',     'a.white@audittrailhealth.com',     '(713) 555-0302', 'Cardiology',        4,  '2016-09-01', 'specialist'),
-  (9,  'James',      'Martinez',  'j.martinez@audittrailhealth.com',  '(713) 555-0303', 'Family Medicine',   3,  '2021-02-15', 'primary'),
-  (10, 'Karen',      'Thompson',  'k.thompson@audittrailhealth.com',  '(713) 555-0304', 'Internal Medicine', 9,  '2018-11-01', 'primary'),
+  (3,  'Patricia',   'Moore',     'moore@ath.doctor.com',     '(713) 555-0301', 'Family Medicine',   3,  '2015-04-01', 'primary'),
+  (4,  'Angela',     'White',     'white@ath.doctor.com',     '(713) 555-0302', 'Cardiology',        4,  '2016-09-01', 'specialist'),
+  (9,  'James',      'Martinez',  'martinez@ath.doctor.com',  '(713) 555-0303', 'Family Medicine',   3,  '2021-02-15', 'primary'),
+  (10, 'Karen',      'Thompson',  'thompson@ath.doctor.com',  '(713) 555-0304', 'Internal Medicine', 9,  '2018-11-01', 'primary'),
   -- Austin (office 3)
-  (5,  'Robert',     'Davis',     'r.davis@audittrailhealth.com',     '(512) 555-0301', 'General Practice',  5,  '2014-04-01', 'primary'),
-  (6,  'Rachel',     'Foster',    'r.foster@audittrailhealth.com',    '(512) 555-0302', 'Neurology',         6,  '2019-06-15', 'specialist'),
-  (11, 'David',      'Lee',       'd.lee@audittrailhealth.com',       '(512) 555-0303', 'Geriatrics',        11, '2016-03-01', 'primary'),
-  (12, 'Susan',      'Nguyen',    's.nguyen@audittrailhealth.com',    '(512) 555-0304', 'General Practice',  5,  '2020-08-01', 'primary'),
+  (5,  'Robert',     'Davis',     'davis@ath.doctor.com',     '(512) 555-0301', 'General Practice',  5,  '2014-04-01', 'primary'),
+  (6,  'Rachel',     'Foster',    'foster@ath.doctor.com',    '(512) 555-0302', 'Neurology',         6,  '2019-06-15', 'specialist'),
+  (11, 'David',      'Lee',       'lee@ath.doctor.com',       '(512) 555-0303', 'Geriatrics',        11, '2016-03-01', 'primary'),
+  (12, 'Susan',      'Nguyen',    'nguyen@ath.doctor.com',    '(512) 555-0304', 'General Practice',  5,  '2020-08-01', 'primary'),
   -- San Antonio (office 4)
-  (13, 'Carlos',     'Rivera',    'c.rivera@audittrailhealth.com',    '(210) 555-0301', 'Family Medicine',   13, '2017-05-01', 'primary'),
-  (14, 'Amanda',     'Scott',     'a.scott@audittrailhealth.com',     '(210) 555-0302', 'Internal Medicine', 14, '2019-03-15', 'primary'),
-  (15, 'Thomas',     'Brown',     't.brown@audittrailhealth.com',     '(210) 555-0303', 'Oncology',          15, '2015-07-01', 'specialist'),
-  (16, 'Nina',       'Patel',     'n.patel@audittrailhealth.com',     '(210) 555-0304', 'Rheumatology',      16, '2018-01-10', 'specialist'),
+  (13, 'Carlos',     'Rivera',    'rivera@ath.doctor.com',    '(210) 555-0301', 'Family Medicine',   13, '2017-05-01', 'primary'),
+  (14, 'Amanda',     'Scott',     'scott@ath.doctor.com',     '(210) 555-0302', 'Internal Medicine', 14, '2019-03-15', 'primary'),
+  (15, 'Thomas',     'Brown',     'brown@ath.doctor.com',     '(210) 555-0303', 'Oncology',          15, '2015-07-01', 'specialist'),
+  (16, 'Nina',       'Patel',     'patel@ath.doctor.com',     '(210) 555-0304', 'Rheumatology',      16, '2018-01-10', 'specialist'),
   -- Fort Worth (office 5)
-  (17, 'Jennifer',   'Hall',      'j.hall@audittrailhealth.com',      '(817) 555-0301', 'Family Medicine',   17, '2016-10-01', 'primary'),
-  (18, 'Kevin',      'Wright',    'k.wright@audittrailhealth.com',    '(817) 555-0302', 'General Practice',  18, '2020-04-01', 'primary'),
-  (19, 'Robert',     'Chan',      'r.chan@audittrailhealth.com',      '(817) 555-0303', 'Cardiology',        19, '2017-08-15', 'specialist'),
-  (20, 'Lisa',       'Monroe',    'l.monroe@audittrailhealth.com',    '(817) 555-0304', 'Pulmonology',       20, '2019-11-01', 'specialist'),
+  (17, 'Jennifer',   'Hall',      'hall@ath.doctor.com',      '(817) 555-0301', 'Family Medicine',   17, '2016-10-01', 'primary'),
+  (18, 'Kevin',      'Wright',    'wright@ath.doctor.com',    '(817) 555-0302', 'General Practice',  18, '2020-04-01', 'primary'),
+  (19, 'Robert',     'Chan',      'chan@ath.doctor.com',      '(817) 555-0303', 'Cardiology',        19, '2017-08-15', 'specialist'),
+  (20, 'Lisa',       'Monroe',    'monroe@ath.doctor.com',    '(817) 555-0304', 'Pulmonology',       20, '2019-11-01', 'specialist'),
   -- Plano (office 6)
-  (21, 'Brian',      'Wilson',    'b.wilson@audittrailhealth.com',    '(972) 555-0301', 'Internal Medicine', 21, '2018-06-01', 'primary'),
-  (22, 'Michelle',   'Clark',     'm.clark@audittrailhealth.com',     '(972) 555-0302', 'Family Medicine',   22, '2021-01-15', 'primary'),
-  (23, 'Steven',     'Lewis',     's.lewis@audittrailhealth.com',     '(972) 555-0303', 'Orthopedics',       23, '2016-05-01', 'specialist'),
-  (24, 'Priya',      'Sharma',    'p.sharma@audittrailhealth.com',    '(972) 555-0304', 'Urology',           24, '2020-09-01', 'specialist'),
+  (21, 'Brian',      'Wilson',    'wilson@ath.doctor.com',    '(972) 555-0301', 'Internal Medicine', 21, '2018-06-01', 'primary'),
+  (22, 'Michelle',   'Clark',     'clark@ath.doctor.com',     '(972) 555-0302', 'Family Medicine',   22, '2021-01-15', 'primary'),
+  (23, 'Steven',     'Lewis',     'lewis@ath.doctor.com',     '(972) 555-0303', 'Orthopedics',       23, '2016-05-01', 'specialist'),
+  (24, 'Priya',      'Sharma',    'sharma@ath.doctor.com',    '(972) 555-0304', 'Urology',           24, '2020-09-01', 'specialist'),
   -- El Paso (office 7)
-  (25, 'Diana',      'Torres',    'd.torres@audittrailhealth.com',    '(915) 555-0301', 'General Practice',  25, '2015-02-01', 'primary'),
-  (26, 'Richard',    'Evans',     'r.evans@audittrailhealth.com',     '(915) 555-0302', 'Family Medicine',   26, '2019-04-15', 'primary'),
-  (27, 'Sandra',     'Collins',   's.collins@audittrailhealth.com',   '(915) 555-0303', 'Neurology',         27, '2017-10-01', 'specialist'),
+  (25, 'Diana',      'Torres',    'torres@ath.doctor.com',    '(915) 555-0301', 'General Practice',  25, '2015-02-01', 'primary'),
+  (26, 'Richard',    'Evans',     'evans@ath.doctor.com',     '(915) 555-0302', 'Family Medicine',   26, '2019-04-15', 'primary'),
+  (27, 'Sandra',     'Collins',   'collins@ath.doctor.com',   '(915) 555-0303', 'Neurology',         27, '2017-10-01', 'specialist'),
   -- Corpus Christi (office 8)
-  (28, 'Christopher','Hill',      'c.hill@audittrailhealth.com',      '(361) 555-0301', 'Family Medicine',   28, '2018-08-01', 'primary'),
-  (29, 'Patricia',   'Baker',     'p.baker@audittrailhealth.com',     '(361) 555-0302', 'Internal Medicine', 29, '2020-03-01', 'primary'),
-  (30, 'Joshua',     'Nelson',    'j.nelson@audittrailhealth.com',    '(361) 555-0303', 'Pulmonology',       30, '2016-12-01', 'specialist');
+  (28, 'Christopher','Hill',      'hill@ath.doctor.com',      '(361) 555-0301', 'Family Medicine',   28, '2018-08-01', 'primary'),
+  (29, 'Patricia',   'Baker',     'baker@ath.doctor.com',     '(361) 555-0302', 'Internal Medicine', 29, '2020-03-01', 'primary'),
+  (30, 'Joshua',     'Nelson',    'nelson@ath.doctor.com',    '(361) 555-0303', 'Pulmonology',       30, '2016-12-01', 'specialist');
 
 -- ─── Work Schedules ──────────────────────────────────────────
 
@@ -227,14 +227,14 @@ INSERT IGNORE INTO work_schedule (schedule_id, physician_id, office_id, day_of_w
 -- ─── Staff (8 members — one per city) ───────────────────────
 
 INSERT IGNORE INTO staff (staff_id, first_name, last_name, date_of_birth, department_id, role, hire_date, phone_number, email, shift_start, shift_end) VALUES
-  (1, 'Nicole',   'Adams',   '1990-04-12', 1,  'Medical Assistant',  '2021-01-10', '(214) 555-0401', 'n.adams@audittrailhealth.com',    '08:00:00', '16:00:00'),
-  (2, 'Jordan',   'Brooks',  '1988-09-23', 4,  'Billing Specialist', '2019-06-15', '(713) 555-0401', 'j.brooks@audittrailhealth.com',   '09:00:00', '17:00:00'),
-  (3, 'Morgan',   'Taylor',  '1993-02-17', 3,  'Receptionist',       '2020-03-01', '(512) 555-0401', 'm.taylor@audittrailhealth.com',   '08:00:00', '16:00:00'),
-  (4, 'Maria',    'Gomez',   '1991-07-22', 13, 'Receptionist',       '2021-05-10', '(210) 555-0401', 'm.gomez@audittrailhealth.com',    '08:00:00', '16:00:00'),
-  (5, 'David',    'Kim',     '1989-11-04', 17, 'Medical Assistant',  '2022-01-15', '(817) 555-0401', 'd.kim@audittrailhealth.com',      '08:00:00', '16:00:00'),
-  (6, 'Rachel',   'Lin',     '1994-03-30', 21, 'Billing Specialist', '2020-09-01', '(972) 555-0401', 'r.lin@audittrailhealth.com',      '09:00:00', '17:00:00'),
-  (7, 'Carlos',   'Mendez',  '1987-06-18', 25, 'Receptionist',       '2019-11-01', '(915) 555-0401', 'c.mendez@audittrailhealth.com',   '08:00:00', '16:00:00'),
-  (8, 'Brittany', 'Ross',    '1995-01-09', 28, 'Medical Assistant',  '2023-03-01', '(361) 555-0401', 'b.ross@audittrailhealth.com',     '08:00:00', '16:00:00');
+  (1, 'Nicole',   'Adams',   '1990-04-12', 1,  'Medical Assistant',  '2021-01-10', '(214) 555-0401', 'adams@ath.staff.com',    '08:00:00', '16:00:00'),
+  (2, 'Jordan',   'Brooks',  '1988-09-23', 4,  'Billing Specialist', '2019-06-15', '(713) 555-0401', 'brooks@ath.staff.com',   '09:00:00', '17:00:00'),
+  (3, 'Morgan',   'Taylor',  '1993-02-17', 3,  'Receptionist',       '2020-03-01', '(512) 555-0401', 'taylor@ath.staff.com',   '08:00:00', '16:00:00'),
+  (4, 'Maria',    'Gomez',   '1991-07-22', 13, 'Receptionist',       '2021-05-10', '(210) 555-0401', 'gomez@ath.staff.com',    '08:00:00', '16:00:00'),
+  (5, 'David',    'Kim',     '1989-11-04', 17, 'Medical Assistant',  '2022-01-15', '(817) 555-0401', 'kim@ath.staff.com',      '08:00:00', '16:00:00'),
+  (6, 'Rachel',   'Lin',     '1994-03-30', 21, 'Billing Specialist', '2020-09-01', '(972) 555-0401', 'lin@ath.staff.com',      '09:00:00', '17:00:00'),
+  (7, 'Carlos',   'Mendez',  '1987-06-18', 25, 'Receptionist',       '2019-11-01', '(915) 555-0401', 'mendez@ath.staff.com',   '08:00:00', '16:00:00'),
+  (8, 'Brittany', 'Ross',    '1995-01-09', 28, 'Medical Assistant',  '2023-03-01', '(361) 555-0401', 'ross@ath.staff.com',     '08:00:00', '16:00:00');
 
 -- ─── Users (login accounts) ─────────────────────────────────
 -- Passwords bcrypt-hashed (10 rounds)
@@ -418,48 +418,48 @@ INSERT IGNORE INTO department (department_id, department_name, description, clin
 
 INSERT IGNORE INTO physician (physician_id, first_name, last_name, email, phone_number, specialty, department_id, hire_date, physician_type) VALUES
   -- Dallas additions (office 1)
-  (31, 'Anthony',   'Reed',      'a.reed@audittrailhealth.com',      '(214) 555-0305', 'Family Medicine',    7,  '2021-03-01', 'primary'),
-  (32, 'Laura',     'Price',     'l.price@audittrailhealth.com',     '(214) 555-0306', 'Internal Medicine',  1,  '2018-07-15', 'primary'),
-  (33, 'Marcus',    'Allen',     'm.allen@audittrailhealth.com',     '(214) 555-0307', 'Cardiology',         31, '2016-04-01', 'specialist'),
-  (34, 'Stephanie', 'Cook',      's.cook@audittrailhealth.com',      '(214) 555-0308', 'Dermatology',        32, '2019-09-01', 'specialist'),
+  (31, 'Anthony',   'Reed',      'reed@ath.doctor.com',      '(214) 555-0305', 'Family Medicine',    7,  '2021-03-01', 'primary'),
+  (32, 'Laura',     'Price',     'price@ath.doctor.com',     '(214) 555-0306', 'Internal Medicine',  1,  '2018-07-15', 'primary'),
+  (33, 'Marcus',    'Allen',     'allen@ath.doctor.com',     '(214) 555-0307', 'Cardiology',         31, '2016-04-01', 'specialist'),
+  (34, 'Stephanie', 'Cook',      'cook@ath.doctor.com',      '(214) 555-0308', 'Dermatology',        32, '2019-09-01', 'specialist'),
   -- Houston additions (office 2)
-  (35, 'Daniel',    'Flores',    'd.flores@audittrailhealth.com',    '(713) 555-0305', 'Family Medicine',    3,  '2020-11-01', 'primary'),
-  (36, 'Nicole',    'Simmons',   'n.simmons@audittrailhealth.com',   '(713) 555-0306', 'Internal Medicine',  9,  '2017-06-15', 'primary'),
-  (37, 'Victor',    'Huang',     'v.huang@audittrailhealth.com',     '(713) 555-0307', 'Oncology',           33, '2015-09-01', 'specialist'),
-  (38, 'Melissa',   'Jordan',    'm.jordan@audittrailhealth.com',    '(713) 555-0308', 'Gastroenterology',   34, '2018-02-01', 'specialist'),
+  (35, 'Daniel',    'Flores',    'flores@ath.doctor.com',    '(713) 555-0305', 'Family Medicine',    3,  '2020-11-01', 'primary'),
+  (36, 'Nicole',    'Simmons',   'simmons@ath.doctor.com',   '(713) 555-0306', 'Internal Medicine',  9,  '2017-06-15', 'primary'),
+  (37, 'Victor',    'Huang',     'huang@ath.doctor.com',     '(713) 555-0307', 'Oncology',           33, '2015-09-01', 'specialist'),
+  (38, 'Melissa',   'Jordan',    'jordan@ath.doctor.com',    '(713) 555-0308', 'Gastroenterology',   34, '2018-02-01', 'specialist'),
   -- Austin additions (office 3)
-  (39, 'Steven',    'Perry',     's.perry@audittrailhealth.com',     '(512) 555-0305', 'General Practice',   5,  '2022-01-10', 'primary'),
-  (40, 'Kimberly',  'Ross',      'k.ross@audittrailhealth.com',      '(512) 555-0306', 'Geriatrics',         11, '2019-05-01', 'primary'),
+  (39, 'Steven',    'Perry',     'perry@ath.doctor.com',     '(512) 555-0305', 'General Practice',   5,  '2022-01-10', 'primary'),
+  (40, 'Kimberly',  'Ross',      'ross@ath.doctor.com',      '(512) 555-0306', 'Geriatrics',         11, '2019-05-01', 'primary'),
   -- New York additions (office 4) — major hub
-  (41, 'Jonathan',  'Wallace',   'j.wallace@audittrailhealth.com',   '(212) 555-0309', 'Family Medicine',    13, '2018-03-01', 'primary'),
-  (42, 'Christine', 'Bennett',   'c.bennett@audittrailhealth.com',   '(212) 555-0310', 'Internal Medicine',  14, '2020-07-01', 'primary'),
-  (43, 'Raymond',   'Diaz',      'r.diaz@audittrailhealth.com',      '(212) 555-0311', 'Family Medicine',    13, '2016-11-01', 'primary'),
-  (44, 'Natalie',   'Wu',        'n.wu@audittrailhealth.com',        '(212) 555-0312', 'Internal Medicine',  14, '2021-04-15', 'primary'),
-  (45, 'Gregory',   'Vasquez',   'g.vasquez@audittrailhealth.com',   '(212) 555-0313', 'Cardiology',         35, '2015-06-01', 'specialist'),
-  (46, 'Helen',     'Nguyen',    'h.nguyen@audittrailhealth.com',    '(212) 555-0314', 'Gastroenterology',   36, '2017-10-01', 'specialist'),
-  (47, 'Patrick',   'Morales',   'p.morales@audittrailhealth.com',   '(212) 555-0315', 'Neurology',          37, '2019-01-15', 'specialist'),
+  (41, 'Jonathan',  'Wallace',   'wallace@ath.doctor.com',   '(212) 555-0309', 'Family Medicine',    13, '2018-03-01', 'primary'),
+  (42, 'Christine', 'Bennett',   'bennett@ath.doctor.com',   '(212) 555-0310', 'Internal Medicine',  14, '2020-07-01', 'primary'),
+  (43, 'Raymond',   'Diaz',      'diaz@ath.doctor.com',      '(212) 555-0311', 'Family Medicine',    13, '2016-11-01', 'primary'),
+  (44, 'Natalie',   'Wu',        'wu@ath.doctor.com',        '(212) 555-0312', 'Internal Medicine',  14, '2021-04-15', 'primary'),
+  (45, 'Gregory',   'Vasquez',   'vasquez@ath.doctor.com',   '(212) 555-0313', 'Cardiology',         35, '2015-06-01', 'specialist'),
+  (46, 'Helen',     'Nguyen',    'nguyen@ath.doctor.com',    '(212) 555-0314', 'Gastroenterology',   36, '2017-10-01', 'specialist'),
+  (47, 'Patrick',   'Morales',   'morales@ath.doctor.com',   '(212) 555-0315', 'Neurology',          37, '2019-01-15', 'specialist'),
   -- Chicago additions (office 5)
-  (48, 'Vanessa',   'Griffin',   'v.griffin@audittrailhealth.com',   '(312) 555-0309', 'Family Medicine',    17, '2021-08-01', 'primary'),
-  (49, 'Eric',      'Stone',     'e.stone@audittrailhealth.com',     '(312) 555-0310', 'General Practice',   18, '2019-02-15', 'primary'),
-  (50, 'Tamara',    'Owens',     't.owens@audittrailhealth.com',     '(312) 555-0311', 'Gastroenterology',   38, '2016-08-01', 'specialist'),
-  (51, 'Derek',     'Murphy',    'd.murphy@audittrailhealth.com',    '(312) 555-0312', 'Dermatology',        39, '2020-03-01', 'specialist'),
+  (48, 'Vanessa',   'Griffin',   'griffin@ath.doctor.com',   '(312) 555-0309', 'Family Medicine',    17, '2021-08-01', 'primary'),
+  (49, 'Eric',      'Stone',     'stone@ath.doctor.com',     '(312) 555-0310', 'General Practice',   18, '2019-02-15', 'primary'),
+  (50, 'Tamara',    'Owens',     'owens@ath.doctor.com',     '(312) 555-0311', 'Gastroenterology',   38, '2016-08-01', 'specialist'),
+  (51, 'Derek',     'Murphy',    'murphy@ath.doctor.com',    '(312) 555-0312', 'Dermatology',        39, '2020-03-01', 'specialist'),
   -- LA additions (office 6) — major hub
-  (52, 'Alicia',    'Castillo',  'a.castillo@audittrailhealth.com',  '(310) 555-0309', 'Internal Medicine',  21, '2018-05-01', 'primary'),
-  (53, 'Trevor',    'Hoffman',   't.hoffman@audittrailhealth.com',   '(310) 555-0310', 'Family Medicine',    22, '2020-10-01', 'primary'),
-  (54, 'Jasmine',   'Reyes',     'j.reyes@audittrailhealth.com',     '(310) 555-0311', 'Internal Medicine',  21, '2017-01-15', 'primary'),
-  (55, 'Wesley',    'Cunningham','w.cunningham@audittrailhealth.com','(310) 555-0312', 'Dermatology',        40, '2015-11-01', 'specialist'),
-  (56, 'Olivia',    'Park',      'o.park@audittrailhealth.com',      '(310) 555-0313', 'Endocrinology',      41, '2018-09-01', 'specialist'),
-  (57, 'Brandon',   'Yates',     'b.yates@audittrailhealth.com',     '(310) 555-0314', 'Rheumatology',       42, '2016-06-01', 'specialist'),
+  (52, 'Alicia',    'Castillo',  'castillo@ath.doctor.com',  '(310) 555-0309', 'Internal Medicine',  21, '2018-05-01', 'primary'),
+  (53, 'Trevor',    'Hoffman',   'hoffman@ath.doctor.com',   '(310) 555-0310', 'Family Medicine',    22, '2020-10-01', 'primary'),
+  (54, 'Jasmine',   'Reyes',     'reyes@ath.doctor.com',     '(310) 555-0311', 'Internal Medicine',  21, '2017-01-15', 'primary'),
+  (55, 'Wesley',    'Cunningham','cunningham@ath.doctor.com','(310) 555-0312', 'Dermatology',        40, '2015-11-01', 'specialist'),
+  (56, 'Olivia',    'Park',      'park@ath.doctor.com',      '(310) 555-0313', 'Endocrinology',      41, '2018-09-01', 'specialist'),
+  (57, 'Brandon',   'Yates',     'yates@ath.doctor.com',     '(310) 555-0314', 'Rheumatology',       42, '2016-06-01', 'specialist'),
   -- Phoenix additions (office 7)
-  (58, 'Erica',     'Watts',     'e.watts@audittrailhealth.com',     '(602) 555-0308', 'General Practice',   25, '2021-06-01', 'primary'),
-  (59, 'Marcus',    'Fleming',   'm.fleming@audittrailhealth.com',   '(602) 555-0309', 'Family Medicine',    26, '2019-08-15', 'primary'),
-  (60, 'Hannah',    'Cross',     'h.cross@audittrailhealth.com',     '(602) 555-0310', 'Endocrinology',      43, '2017-04-01', 'specialist'),
-  (61, 'Jerome',    'Tran',      'j.tran@audittrailhealth.com',      '(602) 555-0311', 'Pulmonology',        44, '2020-01-15', 'specialist'),
+  (58, 'Erica',     'Watts',     'watts@ath.doctor.com',     '(602) 555-0308', 'General Practice',   25, '2021-06-01', 'primary'),
+  (59, 'Marcus',    'Fleming',   'fleming@ath.doctor.com',   '(602) 555-0309', 'Family Medicine',    26, '2019-08-15', 'primary'),
+  (60, 'Hannah',    'Cross',     'cross@ath.doctor.com',     '(602) 555-0310', 'Endocrinology',      43, '2017-04-01', 'specialist'),
+  (61, 'Jerome',    'Tran',      'tran@ath.doctor.com',      '(602) 555-0311', 'Pulmonology',        44, '2020-01-15', 'specialist'),
   -- Seattle additions (office 8)
-  (62, 'Audrey',    'Manning',   'a.manning@audittrailhealth.com',   '(206) 555-0308', 'Family Medicine',    28, '2022-03-01', 'primary'),
-  (63, 'Calvin',    'Holt',      'c.holt@audittrailhealth.com',      '(206) 555-0309', 'Internal Medicine',  29, '2019-07-01', 'primary'),
-  (64, 'Renee',     'Stanton',   'r.stanton@audittrailhealth.com',   '(206) 555-0310', 'Oncology',           45, '2016-10-01', 'specialist'),
-  (65, 'Miles',     'Egan',      'm.egan@audittrailhealth.com',      '(206) 555-0311', 'Neurology',          46, '2018-12-01', 'specialist');
+  (62, 'Audrey',    'Manning',   'manning@ath.doctor.com',   '(206) 555-0308', 'Family Medicine',    28, '2022-03-01', 'primary'),
+  (63, 'Calvin',    'Holt',      'holt@ath.doctor.com',      '(206) 555-0309', 'Internal Medicine',  29, '2019-07-01', 'primary'),
+  (64, 'Renee',     'Stanton',   'stanton@ath.doctor.com',   '(206) 555-0310', 'Oncology',           45, '2016-10-01', 'specialist'),
+  (65, 'Miles',     'Egan',      'egan@ath.doctor.com',      '(206) 555-0311', 'Neurology',          46, '2018-12-01', 'specialist');
 
 -- ─── New Work Schedules (IDs 69–142) ─────────────────────────
 INSERT IGNORE INTO work_schedule (schedule_id, physician_id, office_id, day_of_week, start_time, end_time) VALUES

@@ -101,6 +101,20 @@ const getPatientDashboard = (req, res) => {
       WHERE r.patient_id = ?
       ORDER BY r.date_issued DESC`;
 
+    // Active medications / treatments — what am I still on?
+    const treatmentSql = `
+      SELECT t.treatment_id, t.prescribed_medication, t.treatment_plan,
+             t.follow_up_date, t.notes AS treatment_notes,
+             d.diagnosis_description, d.diagnosis_code, d.diagnosis_date,
+             CONCAT('Dr. ', ph.first_name, ' ', ph.last_name) AS physician_name,
+             a.appointment_date, a.appointment_type
+      FROM treatment t
+      JOIN diagnosis d    ON t.diagnosis_id    = d.diagnosis_id
+      JOIN appointment a  ON d.appointment_id  = a.appointment_id
+      JOIN physician ph   ON a.physician_id    = ph.physician_id
+      WHERE a.patient_id = ?
+      ORDER BY d.diagnosis_date DESC`;
+
     // Check if patient has at least one completed appointment with their primary physician
     const eligibilitySql = `
       SELECT COUNT(*) AS cnt FROM appointment
@@ -108,12 +122,13 @@ const getPatientDashboard = (req, res) => {
 
     let data = { patient };
     let completed = 0;
-    function finish() { completed++; if (completed === 5) res.json(data); }
+    function finish() { completed++; if (completed === 6) res.json(data); }
 
     db.query(appointmentsSql, [patient_id], (e, r) => { data.appointments = e ? [] : r; finish(); });
     db.query(historySQL,      [patient_id], (e, r) => { data.history      = e ? [] : r; finish(); });
     db.query(billingSql,      [patient_id], (e, r) => { data.billing      = e ? [] : r; finish(); });
     db.query(referralSql,     [patient_id], (e, r) => { data.referrals    = e ? [] : r; finish(); });
+    db.query(treatmentSql,    [patient_id], (e, r) => { data.treatments   = e ? [] : r; finish(); });
     db.query(eligibilitySql,  [patient_id, patient.primary_physician_id || 0],
         (e, r) => { data.referralEligible = !e && r[0].cnt > 0; finish(); });
   });

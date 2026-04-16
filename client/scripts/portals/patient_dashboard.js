@@ -143,7 +143,13 @@ async function loadDashboard() {
             return;
         }
 
-        const { patient, appointments, history, billing, referrals, referralEligible } = data;
+        const { patient, appointments, history, billing, referrals, referralEligible, treatments } = data;
+
+        // Store globally so filters can re-render without re-fetching
+        _allAppointments = appointments || [];
+        _allHistory      = history      || [];
+        _allTreatments   = treatments   || [];
+        _allBilling      = billing      || [];
 
         /* ── Greeting & sidebar ── */
         const firstName = patient.first_name || "";
@@ -200,125 +206,10 @@ async function loadDashboard() {
                 <button class="profile-edit-btn" onclick="openCareModal()" style="margin-top:8px">Change Care Team</button>`;
         }
 
-        /* ── Appointments: split into upcoming and past ── */
-        const upcomingAppts = appointments.filter(a =>
-            a.status_name === "Scheduled" && new Date(a.appointment_date) >= today
-        ).sort((a,b) => new Date(a.appointment_date) - new Date(b.appointment_date));
-
-        const pastAppts = appointments.filter(a =>
-            a.status_name !== "Scheduled" || new Date(a.appointment_date) < today
-        ).sort((a,b) => new Date(b.appointment_date) - new Date(a.appointment_date));
-
-        const upBody = document.getElementById("apptUpcomingBody");
-        upBody.innerHTML = upcomingAppts.length
-            ? upcomingAppts.map(a => `<tr>
-                <td class="primary">${fmt(a.appointment_date)}</td>
-                <td>${timeFmt(a.appointment_time)}</td>
-                <td>Dr. ${a.doc_first} ${a.doc_last}</td>
-                <td>${a.city || "—"}</td>
-                <td>${a.reason_for_visit || "—"}</td>
-                <td>${pill(a.status_name)}</td>
-                <td><button onclick="cancelAppointment(${a.appointment_id})" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #e05c5c;color:#e05c5c;border-radius:6px;cursor:pointer;font-family:inherit">Cancel</button></td>
-            </tr>`).join("")
-            : `<tr><td colspan="7" class="table-empty">No upcoming appointments</td></tr>`;
-
-        /* ── Past appointments — with billing link ── */
-        const pastBody = document.getElementById("apptPastBody");
-        pastBody.innerHTML = pastAppts.length
-            ? pastAppts.map(a => {
-                // Find a matching billing record by date + physician
-                const bill = billing.find(b =>
-                    b.appointment_date && a.appointment_date &&
-                    b.appointment_date.toString().split("T")[0] === a.appointment_date.toString().split("T")[0] &&
-                    (b.doc_last === a.doc_last || !b.doc_last)
-                );
-                let billCell = "—";
-                if (a.status_name === "Completed") {
-                    if (bill) {
-                        const isPaid = (bill.payment_status || "").toLowerCase() === "paid";
-                        billCell = isPaid
-                            ? `<span style="color:#10b981;font-size:12px;font-weight:600">✓ Paid</span>`
-                            : `<button onclick="showSection('billing')" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #f59e0b;color:#d97706;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600">Pay $${parseFloat(bill.patient_owed||0).toFixed(2)} →</button>`;
-                    } else {
-                        billCell = `<button onclick="showSection('billing')" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #e0e3ed;color:#888;border-radius:6px;cursor:pointer;font-family:inherit">View Bill</button>`;
-                    }
-                }
-                return `<tr>
-                    <td class="primary">${fmt(a.appointment_date)}</td>
-                    <td>${timeFmt(a.appointment_time)}</td>
-                    <td>Dr. ${a.doc_first} ${a.doc_last}</td>
-                    <td>${a.city || "—"}</td>
-                    <td>${a.appointment_type || "General"}</td>
-                    <td>${pill(a.status_name)}</td>
-                    <td>${billCell}</td>
-                </tr>`;
-            }).join("")
-            : `<tr><td colspan="7" class="table-empty">No past appointments on record</td></tr>`;
-
-        /* ── Health Records — grouped into 3 sections ── */
-        // Filter out administrative/internal entries patients shouldn't see
-        const adminConditions = ["No-Show", "Appointment Status Correction"];
-        const visibleHistory = history.filter(h =>
-            !adminConditions.some(a => (h.condition || "").startsWith(a))
-        );
-
-        // Group: active conditions (not clinical notes), visit notes, resolved
-        const activeConditions = visibleHistory.filter(h =>
-            (h.status || "").toLowerCase() === "active" &&
-            (h.condition || "").toLowerCase() !== "clinical note"
-        );
-        const visitNotes = visibleHistory.filter(h =>
-            (h.condition || "").toLowerCase() === "clinical note"
-        );
-        const resolved = visibleHistory.filter(h =>
-            (h.status || "").toLowerCase() !== "active"
-        );
-
-        // Active conditions — card layout
-        const activeEl = document.getElementById("activeConditionsBody");
-        if (activeConditions.length === 0) {
-            activeEl.innerHTML = `<p class="table-empty" style="padding:8px 0">No active conditions on record.</p>`;
-        } else {
-            activeEl.innerHTML = activeConditions.map(h => `
-                <div style="border:1px solid #e0e4f0;border-left:4px solid #6ea8fe;border-radius:10px;padding:16px 20px;background:white">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
-                        <div style="font-size:15px;font-weight:700;color:#1f2a6d">${h.condition || "—"}</div>
-                        ${pill(h.status || "Active")}
-                    </div>
-                    <div style="font-size:12px;color:#888;margin-bottom:${h.notes ? "10px" : "0"}">
-                        Recorded ${fmt(h.diagnosis_date)}${h.physician_name ? ` &nbsp;·&nbsp; Added by ${h.physician_name}` : ""}
-                    </div>
-                    ${h.notes ? `<div style="font-size:13px;color:#555;line-height:1.6;background:#f8fbff;border-radius:7px;padding:10px 14px;border:1px solid #e8ecf8">${h.notes}</div>` : ""}
-                </div>`).join("");
-        }
-
-        // Visit notes — list layout
-        const notesEl = document.getElementById("visitNotesBody");
-        if (visitNotes.length === 0) {
-            notesEl.innerHTML = `<p class="table-empty" style="padding:8px 0">No visit notes on record yet. Notes are added after completed appointments.</p>`;
-        } else {
-            notesEl.innerHTML = visitNotes.map(h => `
-                <div style="border:1px solid #f0f2f8;border-radius:10px;padding:14px 18px;background:white">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                        <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">
-                            ${h.physician_name || "Your Care Team"} &nbsp;·&nbsp; ${fmt(h.diagnosis_date)}
-                        </div>
-                        <span style="font-size:11px;background:#f0f4ff;color:#1f2a6d;border-radius:20px;padding:2px 10px;font-weight:600">Visit Note</span>
-                    </div>
-                    <div style="font-size:13px;color:#444;line-height:1.7">${h.notes || "—"}</div>
-                </div>`).join("");
-        }
-
-        // Resolved — table layout
-        const resolvedEl = document.getElementById("resolvedHistoryBody");
-        resolvedEl.innerHTML = resolved.length
-            ? resolved.map(h => `<tr>
-                <td class="primary">${h.condition || "—"}</td>
-                <td>${fmt(h.diagnosis_date)}</td>
-                <td>${pill(h.status || "Resolved")}</td>
-                <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${h.notes || "—"}</td>
-            </tr>`).join("")
-            : `<tr><td colspan="4" class="table-empty">No resolved conditions on record</td></tr>`;
+        /* ── Appointments & Health Records — rendered by filter functions ── */
+        applyApptFilters();
+        applyHistFilters();
+        renderMedications();
 
         /* ── Billing table ── */
         const bBody = document.getElementById("billingBody");
@@ -451,11 +342,17 @@ async function loadDashboard() {
     }
 }
 
+/* ── Global data stores (populated on dashboard load, used by filters) ── */
+let _allAppointments = [];
+let _allHistory      = [];
+let _allTreatments   = [];
+let _allBilling      = [];
+
 /* ── Profile completeness check ── */
 let _patientId         = null;
 let _patientCity       = null;
-let _patientDOB        = null; // stored on dashboard load, used for age-aware physician labels
-let _physicianWorkDays = [];   // ["Monday","Wednesday"] — loaded when entering booking step 2
+let _patientDOB        = null;
+let _physicianWorkDays = [];
 
 function checkProfileCompleteness(patient) {
     _patientId   = patient.patient_id;
@@ -1038,6 +935,299 @@ async function submitProfile(e) {
 }
 
 loadDashboard();
+
+/* ─────────────────────────────────────────────
+   APPOINTMENT FILTER + RENDER
+─────────────────────────────────────────────── */
+function applyApptFilters() {
+    const statusVal = (document.getElementById("apptStatusFilter")?.value || "all");
+    const typeVal   = (document.getElementById("apptTypeFilter")?.value   || "all");
+    const sortVal   = (document.getElementById("apptSortOrder")?.value    || "newest");
+    const search    = (document.getElementById("apptSearch")?.value       || "").toLowerCase().trim();
+
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    // Apply filters to all appointments
+    let filtered = _allAppointments.filter(a => {
+        // Status filter
+        if (statusVal === "upcoming") {
+            if (!(a.status_name === "Scheduled" && new Date(a.appointment_date) >= today)) return false;
+        } else if (statusVal !== "all") {
+            if (a.status_name !== statusVal) return false;
+        }
+        // Type filter
+        if (typeVal !== "all" && (a.appointment_type || "General") !== typeVal) return false;
+        // Search
+        if (search) {
+            const haystack = `${a.doc_first} ${a.doc_last} ${a.reason_for_visit} ${a.appointment_type}`.toLowerCase();
+            if (!haystack.includes(search)) return false;
+        }
+        return true;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+        const da = new Date(a.appointment_date), db = new Date(b.appointment_date);
+        return sortVal === "oldest" ? da - db : db - da;
+    });
+
+    // Split into upcoming / past for sub-tables
+    const upcoming = filtered.filter(a => a.status_name === "Scheduled" && new Date(a.appointment_date) >= today);
+    const past     = filtered.filter(a => a.status_name !== "Scheduled" || new Date(a.appointment_date) < today);
+
+    // Count badge
+    const countEl = document.getElementById("apptFilterCount");
+    if (countEl) {
+        const isFiltered = statusVal !== "all" || typeVal !== "all" || search;
+        countEl.textContent = isFiltered
+            ? `${filtered.length} of ${_allAppointments.length} appointments match`
+            : `${_allAppointments.length} total appointments`;
+    }
+
+    // Reset button visibility
+    const isActive = statusVal !== "all" || typeVal !== "all" || search;
+    const resetBtn = document.getElementById("apptResetBtn");
+    if (resetBtn) resetBtn.classList.toggle("visible", isActive);
+
+    // Mark active filters
+    ["apptStatusFilter","apptTypeFilter"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle("active-filter", el.value !== "all");
+    });
+
+    // Render upcoming
+    const upBody = document.getElementById("apptUpcomingBody");
+    if (upBody) {
+        upBody.innerHTML = upcoming.length
+            ? upcoming.map(a => `<tr>
+                <td class="primary">${fmt(a.appointment_date)}</td>
+                <td>${timeFmt(a.appointment_time)}</td>
+                <td>Dr. ${a.doc_first} ${a.doc_last}</td>
+                <td>${a.city || "—"}</td>
+                <td>${a.appointment_type || "General"}</td>
+                <td>${a.reason_for_visit || "—"}</td>
+                <td>${pill(a.status_name)}</td>
+                <td><button onclick="cancelAppointment(${a.appointment_id})" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #e05c5c;color:#e05c5c;border-radius:6px;cursor:pointer;font-family:inherit">Cancel</button></td>
+            </tr>`).join("")
+            : `<tr><td colspan="8" class="table-empty">${statusVal !== "all" || search ? "No matching upcoming appointments" : "No upcoming appointments"}</td></tr>`;
+    }
+
+    // Render past
+    const pastBody = document.getElementById("apptPastBody");
+    if (pastBody) {
+        pastBody.innerHTML = past.length
+            ? past.map(a => {
+                const bill = _allBilling.find(b =>
+                    b.appointment_date && a.appointment_date &&
+                    b.appointment_date.toString().split("T")[0] === a.appointment_date.toString().split("T")[0] &&
+                    (b.doc_last === a.doc_last || !b.doc_last)
+                );
+                let billCell = "—";
+                if (a.status_name === "Completed") {
+                    if (bill) {
+                        const isPaid = (bill.payment_status || "").toLowerCase() === "paid";
+                        billCell = isPaid
+                            ? `<span style="color:#10b981;font-size:12px;font-weight:600">✓ Paid</span>`
+                            : `<button onclick="showSection('billing')" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #f59e0b;color:#d97706;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600">Pay $${parseFloat(bill.patient_owed||0).toFixed(2)} →</button>`;
+                    } else {
+                        billCell = `<button onclick="showSection('billing')" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #e0e3ed;color:#888;border-radius:6px;cursor:pointer;font-family:inherit">View Bill</button>`;
+                    }
+                }
+                return `<tr>
+                    <td class="primary">${fmt(a.appointment_date)}</td>
+                    <td>${timeFmt(a.appointment_time)}</td>
+                    <td>Dr. ${a.doc_first} ${a.doc_last}</td>
+                    <td>${a.city || "—"}</td>
+                    <td>${a.appointment_type || "General"}</td>
+                    <td>${pill(a.status_name)}</td>
+                    <td>${billCell}</td>
+                </tr>`;
+            }).join("")
+            : `<tr><td colspan="7" class="table-empty">${statusVal !== "all" || search ? "No matching past appointments" : "No past appointments on record"}</td></tr>`;
+    }
+
+    // Show/hide sub-sections based on filter
+    const showUpcoming = statusVal === "all" || statusVal === "upcoming";
+    const showPast     = statusVal === "all" || statusVal !== "upcoming";
+    const upSec  = document.getElementById("apptUpcomingSection");
+    const pastSec = document.getElementById("apptPastSection");
+    if (upSec)  upSec.style.display  = showUpcoming ? "" : "none";
+    if (pastSec) pastSec.style.display = showPast    ? "" : "none";
+}
+
+function resetApptFilters() {
+    ["apptStatusFilter","apptTypeFilter","apptSortOrder"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.selectedIndex = 0;
+    });
+    const s = document.getElementById("apptSearch");
+    if (s) s.value = "";
+    applyApptFilters();
+}
+
+/* ─────────────────────────────────────────────
+   HEALTH RECORDS FILTER + RENDER
+─────────────────────────────────────────────── */
+function applyHistFilters() {
+    const statusVal = (document.getElementById("histStatusFilter")?.value || "all");
+    const sortVal   = (document.getElementById("histSortOrder")?.value    || "newest");
+    const search    = (document.getElementById("histSearch")?.value       || "").toLowerCase().trim();
+
+    const adminConditions = ["No-Show", "Appointment Status Correction"];
+
+    // Strip admin entries, extract notes separately
+    const visibleHistory = _allHistory.filter(h =>
+        !adminConditions.some(a => (h.condition || "").startsWith(a))
+    );
+
+    const visitNotes = visibleHistory.filter(h =>
+        (h.condition || "").toLowerCase() === "clinical note"
+    );
+
+    let conditions = visibleHistory.filter(h =>
+        (h.condition || "").toLowerCase() !== "clinical note"
+    );
+
+    // Apply status filter
+    if (statusVal === "active") {
+        conditions = conditions.filter(h => (h.status || "").toLowerCase() === "active");
+    } else if (statusVal === "resolved") {
+        conditions = conditions.filter(h => (h.status || "").toLowerCase() !== "active");
+    }
+
+    // Apply search
+    if (search) {
+        conditions = conditions.filter(h =>
+            (h.condition || "").toLowerCase().includes(search) ||
+            (h.notes || "").toLowerCase().includes(search)
+        );
+    }
+
+    // Sort
+    conditions.sort((a, b) => {
+        const da = new Date(a.diagnosis_date), db = new Date(b.diagnosis_date);
+        return sortVal === "oldest" ? da - db : db - da;
+    });
+
+    // Count badge
+    const countEl = document.getElementById("histFilterCount");
+    const totalConditions = visibleHistory.filter(h => (h.condition || "").toLowerCase() !== "clinical note").length;
+    if (countEl) {
+        const isFiltered = statusVal !== "all" || search;
+        countEl.textContent = isFiltered
+            ? `${conditions.length} of ${totalConditions} conditions match`
+            : `${totalConditions} conditions on record`;
+    }
+
+    // Reset button
+    const isActive = statusVal !== "all" || search;
+    const resetBtn = document.getElementById("histResetBtn");
+    if (resetBtn) resetBtn.classList.toggle("visible", isActive);
+    const sf = document.getElementById("histStatusFilter");
+    if (sf) sf.classList.toggle("active-filter", sf.value !== "all");
+
+    // Split active / resolved
+    const active   = conditions.filter(h => (h.status || "").toLowerCase() === "active");
+    const resolved = conditions.filter(h => (h.status || "").toLowerCase() !== "active");
+
+    // Show/hide sections based on filter
+    const showActive   = statusVal === "all" || statusVal === "active";
+    const showResolved = statusVal === "all" || statusVal === "resolved";
+    const activeSec   = document.getElementById("activeConditionsSection");
+    const resolvedSec = document.getElementById("resolvedConditionsSection");
+    if (activeSec)   activeSec.style.display   = showActive   ? "" : "none";
+    if (resolvedSec) resolvedSec.style.display  = showResolved ? "" : "none";
+
+    // Active conditions — card layout
+    const activeEl = document.getElementById("activeConditionsBody");
+    if (activeEl) {
+        activeEl.innerHTML = active.length
+            ? active.map(h => `
+                <div style="border:1px solid #e0e4f0;border-left:4px solid #6ea8fe;border-radius:10px;padding:16px 20px;background:white">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
+                        <div style="font-size:15px;font-weight:700;color:#1f2a6d">${h.condition || "—"}</div>
+                        ${pill(h.status || "Active")}
+                    </div>
+                    <div style="font-size:12px;color:#888;margin-bottom:${h.notes ? "10px" : "0"}">
+                        Recorded ${fmt(h.diagnosis_date)}${h.physician_name ? ` &nbsp;·&nbsp; ${h.physician_name}` : ""}
+                    </div>
+                    ${h.notes ? `<div style="font-size:13px;color:#555;line-height:1.6;background:#f8fbff;border-radius:7px;padding:10px 14px;border:1px solid #e8ecf8">${h.notes}</div>` : ""}
+                </div>`).join("")
+            : `<p class="table-empty" style="padding:12px 0">${search ? "No active conditions match your search." : "No active conditions on record."}</p>`;
+    }
+
+    // Resolved — table
+    const resolvedEl = document.getElementById("resolvedHistoryBody");
+    if (resolvedEl) {
+        resolvedEl.innerHTML = resolved.length
+            ? resolved.map(h => `<tr>
+                <td class="primary">${h.condition || "—"}</td>
+                <td>${fmt(h.diagnosis_date)}</td>
+                <td>${h.physician_name || "—"}</td>
+                <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${h.notes || "—"}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="4" class="table-empty">${search ? "No resolved conditions match your search." : "No resolved conditions on record"}</td></tr>`;
+    }
+
+    // Visit notes (not filtered — always show all)
+    const notesEl = document.getElementById("visitNotesBody");
+    if (notesEl) {
+        notesEl.innerHTML = visitNotes.length
+            ? visitNotes.map(h => `
+                <div style="border:1px solid #f0f2f8;border-radius:10px;padding:14px 18px;background:white">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                        <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">
+                            ${h.physician_name || "Your Care Team"} &nbsp;·&nbsp; ${fmt(h.diagnosis_date)}
+                        </div>
+                        <span style="font-size:11px;background:#f0f4ff;color:#1f2a6d;border-radius:20px;padding:2px 10px;font-weight:600">Visit Note</span>
+                    </div>
+                    <div style="font-size:13px;color:#444;line-height:1.7">${h.notes || "—"}</div>
+                </div>`).join("")
+            : `<p class="table-empty" style="padding:8px 0">No visit notes on record yet. Notes are added after completed appointments.</p>`;
+    }
+}
+
+function resetHistFilters() {
+    ["histStatusFilter","histSortOrder"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.selectedIndex = 0;
+    });
+    const s = document.getElementById("histSearch");
+    if (s) s.value = "";
+    applyHistFilters();
+}
+
+/* ─────────────────────────────────────────────
+   MEDICATIONS RENDER
+─────────────────────────────────────────────── */
+function renderMedications() {
+    const el = document.getElementById("medicationsBody");
+    if (!el) return;
+
+    if (!_allTreatments || _allTreatments.length === 0) {
+        el.innerHTML = `<p class="table-empty" style="padding:8px 0">No medications or treatments on file. Your care team adds these after your visits.</p>`;
+        return;
+    }
+
+    el.innerHTML = _allTreatments.map(t => {
+        const followUp = t.follow_up_date
+            ? (new Date(t.follow_up_date) < new Date()
+                ? `<span class="med-card-followup" style="background:#fee2e2;color:#b91c1c">Follow-up overdue: ${fmt(t.follow_up_date)}</span>`
+                : `<span class="med-card-followup">Follow-up: ${fmt(t.follow_up_date)}</span>`)
+            : "";
+        return `
+        <div class="med-card">
+            <div class="med-card-name">${t.prescribed_medication || "Treatment Plan"}</div>
+            <div class="med-card-detail">
+                For: <strong>${t.diagnosis_description || t.diagnosis_code || "—"}</strong>
+                &nbsp;·&nbsp; Prescribed by ${t.physician_name || "your physician"}
+                &nbsp;·&nbsp; ${fmt(t.appointment_date)}
+            </div>
+            ${t.treatment_plan ? `<div class="med-card-plan">${t.treatment_plan}</div>` : ""}
+            ${followUp}
+        </div>`;
+    }).join("");
+}
 
 /* ── Booking Modal ── */
 let _bookingOfficeId = null;
