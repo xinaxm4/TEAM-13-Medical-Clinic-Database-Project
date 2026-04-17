@@ -3,6 +3,7 @@
 <head>
     <title>Staff Portal - Audit Trail Health</title>
     <link rel="stylesheet" href="/client/styles/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         /* Staff purple accent overrides */
         .nav-item.active   { border-left-color: #9e6afe; color: #3a1a6d; }
@@ -58,11 +59,11 @@
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section-label">Menu</div>
-            <button class="nav-item active" onclick="showSection('overview')">Overview</button>
-            <button class="nav-item" onclick="showSection('appointments')">Appointments</button>
-            <button class="nav-item" onclick="showSection('billing')">Billing Queue</button>
-            <button class="nav-item" onclick="showSection('profile')">My Profile</button>
-            <button class="nav-item" onclick="showSection('settings')">Settings</button>
+            <button class="nav-item active" onclick="showSection('overview')"><i class="fa-solid fa-gauge-high"></i>Overview</button>
+            <button class="nav-item" onclick="showSection('appointments')"><i class="fa-solid fa-calendar-days"></i>Appointments</button>
+            <button class="nav-item" onclick="showSection('billing')"><i class="fa-solid fa-file-invoice-dollar"></i>Billing Queue</button>
+            <button class="nav-item" onclick="showSection('profile')"><i class="fa-solid fa-id-card"></i>My Profile</button>
+            <button class="nav-item" onclick="showSection('settings')"><i class="fa-solid fa-gear"></i>Settings</button>
         </nav>
         <div class="sidebar-user">
             <div class="user-avatar" id="avatarInitials">ST</div>

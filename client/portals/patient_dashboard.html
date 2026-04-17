@@ -3,6 +3,7 @@
 <head>
     <title>Patient Portal - Audit Trail Health</title>
     <link rel="stylesheet" href="/client/styles/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         /* Patient accent overrides */
         .nav-item.active   { border-left-color: #6ea8fe; color: #1f2a6d; }
@@ -57,13 +58,13 @@
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section-label">Menu</div>
-            <button class="nav-item active" onclick="showSection('overview')">Overview</button>
-            <button class="nav-item" onclick="showSection('appointments')">My Appointments</button>
-            <button class="nav-item" onclick="showSection('history')">Health Records</button>
-            <button class="nav-item" onclick="showSection('billing')">Billing &amp; Payments</button>
+            <button class="nav-item active" onclick="showSection('overview')"><i class="fa-solid fa-gauge-high"></i>Overview</button>
+            <button class="nav-item" onclick="showSection('appointments')"><i class="fa-solid fa-calendar-days"></i>My Appointments</button>
+            <button class="nav-item" onclick="showSection('history')"><i class="fa-solid fa-notes-medical"></i>Health Records</button>
+            <button class="nav-item" onclick="showSection('billing')"><i class="fa-solid fa-receipt"></i>Billing &amp; Payments</button>
             <div class="nav-section-label">Account</div>
-            <button class="nav-item" onclick="showSection('profile')">My Profile</button>
-            <button class="nav-item" onclick="showSection('settings')">Settings</button>
+            <button class="nav-item" onclick="showSection('profile')"><i class="fa-solid fa-circle-user"></i>My Profile</button>
+            <button class="nav-item" onclick="showSection('settings')"><i class="fa-solid fa-gear"></i>Settings</button>
         </nav>
         <div class="sidebar-user">
             <div class="user-avatar" id="avatarInitials">?</div>

@@ -3,6 +3,7 @@
 <head>
     <title>Physician Portal - Audit Trail Health</title>
     <link rel="stylesheet" href="/client/styles/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         /* Physician green accent overrides */
         .nav-item.active   { border-left-color: #3a9e6a; color: #1a4731; }
@@ -187,14 +188,14 @@
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section-label">Menu</div>
-            <button class="nav-item active" onclick="showSection('overview')">Overview</button>
-            <button class="nav-item" onclick="showSection('appointments')">Appointments</button>
-            <button class="nav-item" onclick="showSection('patients')">My Patients</button>
-            <button class="nav-item" onclick="showSection('schedule')">Work Schedule</button>
-            <button class="nav-item" onclick="showSection('referrals')">Referrals Issued</button>
-            <button class="nav-item" onclick="showSection('incoming')">Incoming Referrals</button>
-            <button class="nav-item" onclick="showSection('settings')">Settings</button>
-            <button class="nav-item" onclick="showSection('reports')">Reports</button>
+            <button class="nav-item active" onclick="showSection('overview')"><i class="fa-solid fa-gauge-high"></i>Overview</button>
+            <button class="nav-item" onclick="showSection('appointments')"><i class="fa-solid fa-calendar-check"></i>Appointments</button>
+            <button class="nav-item" onclick="showSection('patients')"><i class="fa-solid fa-users"></i>My Patients</button>
+            <button class="nav-item" onclick="showSection('schedule')"><i class="fa-solid fa-clock"></i>Work Schedule</button>
+            <button class="nav-item" onclick="showSection('referrals')"><i class="fa-solid fa-arrow-up-right-from-square"></i>Referrals Issued</button>
+            <button class="nav-item" onclick="showSection('incoming')"><i class="fa-solid fa-inbox"></i>Incoming Referrals</button>
+            <button class="nav-item" onclick="showSection('reports')"><i class="fa-solid fa-chart-bar"></i>Reports</button>
+            <button class="nav-item" onclick="showSection('settings')"><i class="fa-solid fa-gear"></i>Settings</button>
         </nav>
         <div class="sidebar-user">
             <div class="user-avatar" id="avatarInitials">Dr</div>
