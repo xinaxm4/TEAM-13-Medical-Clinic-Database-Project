@@ -79,7 +79,13 @@
 
         <!-- Top bar -->
         <div class="topbar">
-            <div class="topbar-title">Audit Trail Health &rsaquo; <span id="currentSection">Overview</span></div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <div class="topbar-nav">
+                    <button class="nav-arrow-btn" id="navBackBtn" onclick="navBack()" disabled title="Back">&#8592;</button>
+                    <button class="nav-arrow-btn" id="navFwdBtn"  onclick="navForward()" disabled title="Forward">&#8594;</button>
+                </div>
+                <div class="topbar-title">Audit Trail Health &rsaquo; <span id="currentSection">Overview</span></div>
+            </div>
             <div class="topbar-right">
                 <button class="logout-btn" id="logoutBtn">Sign Out</button>
             </div>
@@ -349,28 +355,27 @@
                     </div>
                     <button class="profile-edit-btn" onclick="openBookingModal()">+ Book Appointment</button>
                 </div>
-                <div class="filter-bar">
-                    <span class="filter-bar-label">Filter</span>
-                    <select class="filter-select" id="apptStatusFilter" onchange="applyApptFilters()">
-                        <option value="all">All Statuses</option>
-                        <option value="upcoming">Upcoming (Scheduled)</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                        <option value="No-Show">No-Show</option>
-                    </select>
-                    <select class="filter-select" id="apptTypeFilter" onchange="applyApptFilters()">
+
+                <!-- Pill toggle row — status quick-select -->
+                <div class="pill-filter-row" id="apptPillRow">
+                    <span class="pill-filter-label">Show</span>
+                    <button class="pill-btn on" id="pill-appt-Upcoming"   onclick="toggleApptPill('Upcoming')">Upcoming</button>
+                    <button class="pill-btn on green" id="pill-appt-Completed" onclick="toggleApptPill('Completed')">Completed</button>
+                    <button class="pill-btn on red"   id="pill-appt-Cancelled" onclick="toggleApptPill('Cancelled')">Cancelled</button>
+                    <button class="pill-btn on amber" id="pill-appt-No-Show"   onclick="toggleApptPill('No-Show')">No-Show</button>
+                    <div class="pill-filter-divider"></div>
+                    <select class="filter-select" id="apptTypeFilter" onchange="applyApptFilters()" style="font-size:11px;padding:5px 22px 5px 8px">
                         <option value="all">All Types</option>
                         <option value="General">General</option>
                         <option value="Physical">Physical / Annual</option>
                         <option value="Follow-Up">Follow-Up</option>
                         <option value="Specialist">Specialist</option>
                     </select>
-                    <select class="filter-select" id="apptSortOrder" onchange="applyApptFilters()">
+                    <select class="filter-select" id="apptSortOrder" onchange="applyApptFilters()" style="font-size:11px;padding:5px 22px 5px 8px">
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
                     </select>
-                    <input type="text" class="filter-search" id="apptSearch" placeholder="Search physician or reason…" oninput="applyApptFilters()">
-                    <button class="filter-reset-btn" id="apptResetBtn" onclick="resetApptFilters()">✕ Reset filters</button>
+                    <input type="text" class="filter-search" id="apptSearch" placeholder="Search physician or reason…" oninput="applyApptFilters()" style="max-width:200px">
                 </div>
 
                 <!-- Upcoming sub-table -->
@@ -419,8 +424,29 @@
         <!-- ── Health Records Section ── -->
         <div class="page-section hidden" id="sec-history">
 
+            <!-- Pill row — section quick-toggle -->
+            <div class="section-block" style="margin-bottom:24px;padding:0">
+                <div style="padding:14px 20px 0">
+                    <h3 style="font-size:15px;font-weight:700;color:#1f2a6d;margin-bottom:2px">Health Records</h3>
+                    <p style="font-size:12px;color:#aaa">Click to show specific sections, or leave all selected to see everything</p>
+                </div>
+                <div class="pill-filter-row">
+                    <span class="pill-filter-label">View</span>
+                    <button class="pill-btn on green"  id="pill-hist-Medications"        onclick="toggleHistPill('Medications')">Medications</button>
+                    <button class="pill-btn on"        id="pill-hist-ActiveConditions"   onclick="toggleHistPill('ActiveConditions')">Active Conditions</button>
+                    <button class="pill-btn on purple" id="pill-hist-VisitNotes"         onclick="toggleHistPill('VisitNotes')">Visit Notes</button>
+                    <button class="pill-btn on teal"   id="pill-hist-Resolved"           onclick="toggleHistPill('Resolved')">Resolved</button>
+                    <div class="pill-filter-divider"></div>
+                    <select class="filter-select" id="histSortOrder" onchange="applyHistFilters()" style="font-size:11px;padding:5px 22px 5px 8px">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <input type="text" class="filter-search" id="histSearch" placeholder="Search condition…" oninput="applyHistFilters()" style="max-width:180px">
+                </div>
+            </div>
+
             <!-- Current Medications -->
-            <div class="section-block" style="margin-bottom:24px">
+            <div class="section-block" style="margin-bottom:24px" id="histSection-Medications">
                 <div class="section-block-header">
                     <div><h3>Current Medications &amp; Treatments</h3><p>Active prescriptions and treatment plans on file</p></div>
                 </div>
@@ -429,25 +455,11 @@
                 </div>
             </div>
 
-            <!-- Conditions with filter bar -->
-            <div class="section-block" style="margin-bottom:24px;padding:0">
-                <div style="padding:16px 20px 0">
+            <!-- Conditions (pill-toggled above) -->
+            <div class="section-block" style="margin-bottom:24px;padding:0" id="histConditionsBlock">
+                <div style="padding:16px 20px 8px">
                     <h3 style="font-size:15px;font-weight:700;color:#1f2a6d;margin-bottom:2px">Health Conditions</h3>
                     <p style="font-size:12px;color:#aaa" id="histFilterCount">All conditions on record</p>
-                </div>
-                <div class="filter-bar">
-                    <span class="filter-bar-label">Filter</span>
-                    <select class="filter-select" id="histStatusFilter" onchange="applyHistFilters()">
-                        <option value="all">All Conditions</option>
-                        <option value="active">Active Only</option>
-                        <option value="resolved">Resolved Only</option>
-                    </select>
-                    <select class="filter-select" id="histSortOrder" onchange="applyHistFilters()">
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                    </select>
-                    <input type="text" class="filter-search" id="histSearch" placeholder="Search condition…" oninput="applyHistFilters()">
-                    <button class="filter-reset-btn" id="histResetBtn" onclick="resetHistFilters()">✕ Reset filters</button>
                 </div>
 
                 <!-- Active -->
@@ -473,7 +485,7 @@
             </div>
 
             <!-- Visit Notes -->
-            <div class="section-block">
+            <div class="section-block" id="histSection-VisitNotes">
                 <div class="section-block-header">
                     <div><h3>Visit Notes &amp; Clinical Summaries</h3><p>Notes added by your care team after visits</p></div>
                 </div>
@@ -485,10 +497,34 @@
 
         <!-- ── Billing Section ── -->
         <div class="page-section hidden" id="sec-billing">
-            <div class="section-block">
-                <div class="section-block-header">
-                    <div><h3>Billing &amp; Payments</h3><p>Your billing history</p></div>
+            <div class="section-block" style="padding:0">
+
+                <!-- Header row with time-range filter -->
+                <div style="padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                    <div>
+                        <h3 style="font-size:15px;font-weight:700;color:#1f2a6d;margin-bottom:2px">Billing &amp; Payments</h3>
+                        <p style="font-size:12px;color:#aaa">Your payment summary and billing history</p>
+                    </div>
+                    <select class="filter-select" id="billTimeRange" onchange="applyBillingFilters()" style="font-size:11px;padding:5px 22px 5px 8px">
+                        <option value="all">All Time</option>
+                        <option value="month">This Month</option>
+                        <option value="3months">Last 3 Months</option>
+                        <option value="year">This Year</option>
+                    </select>
                 </div>
+
+                <!-- Summary stat cards -->
+                <div id="billingSummary" style="border-bottom:1px solid #f0f2f8"></div>
+
+                <!-- Pill filter row -->
+                <div class="pill-filter-row">
+                    <span class="pill-filter-label">Show</span>
+                    <button class="pill-btn on amber" id="pill-bill-Unpaid"  onclick="toggleBillingPill('Unpaid')">Unpaid</button>
+                    <button class="pill-btn on red"   id="pill-bill-Overdue" onclick="toggleBillingPill('Overdue')">Overdue</button>
+                    <button class="pill-btn on green" id="pill-bill-Paid"    onclick="toggleBillingPill('Paid')">Paid</button>
+                </div>
+
+                <!-- Billing table -->
                 <table class="data-table">
                     <thead>
                         <tr><th>Date</th><th>Physician</th><th>Charge</th><th>Insurance Paid</th><th>You Owe</th><th>Due Date</th><th>Status</th></tr>
