@@ -40,6 +40,36 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+/* ── Navigation history (back / forward buttons) ── */
+let _navHistory    = [];
+let _navIndex      = -1;
+let _navInProgress = false;   // prevents recursive push during back/fwd
+
+function updateNavButtons() {
+    const backBtn = document.getElementById("navBackBtn");
+    const fwdBtn  = document.getElementById("navFwdBtn");
+    if (backBtn) backBtn.disabled = _navIndex <= 0;
+    if (fwdBtn)  fwdBtn.disabled  = _navIndex >= _navHistory.length - 1;
+}
+
+function navBack() {
+    if (_navIndex <= 0) return;
+    _navInProgress = true;
+    _navIndex--;
+    showSection(_navHistory[_navIndex]);
+    _navInProgress = false;
+    updateNavButtons();
+}
+
+function navForward() {
+    if (_navIndex >= _navHistory.length - 1) return;
+    _navInProgress = true;
+    _navIndex++;
+    showSection(_navHistory[_navIndex]);
+    _navInProgress = false;
+    updateNavButtons();
+}
+
 /* ── Section nav ── */
 function showSection(name) {
     document.querySelectorAll(".page-section").forEach(s => s.classList.add("hidden"));
@@ -53,6 +83,16 @@ function showSection(name) {
 
     const labels = { overview:"Overview", appointments:"My Appointments", history:"Health Records", billing:"Billing & Payments", profile:"My Profile", settings:"Settings" };
     document.getElementById("currentSection").textContent = labels[name] || name;
+
+    // Push to nav history (skip duplicate consecutive entries and back/fwd traversals)
+    if (!_navInProgress) {
+        _navHistory = _navHistory.slice(0, _navIndex + 1);  // trim forward stack
+        if (_navHistory[_navHistory.length - 1] !== name) {
+            _navHistory.push(name);
+            _navIndex = _navHistory.length - 1;
+        }
+        updateNavButtons();
+    }
 }
 
 /* ── Settings tabs ── */
@@ -206,28 +246,11 @@ async function loadDashboard() {
                 <button class="profile-edit-btn" onclick="openCareModal()" style="margin-top:8px">Change Care Team</button>`;
         }
 
-        /* ── Appointments & Health Records — rendered by filter functions ── */
+        /* ── Appointments, Health Records, Billing — rendered by filter functions ── */
         applyApptFilters();
         applyHistFilters();
         renderMedications();
-
-        /* ── Billing table ── */
-        const bBody = document.getElementById("billingBody");
-        bBody.innerHTML = billing.length
-            ? billing.map(b => {
-                const isPaid = (b.payment_status || "").toLowerCase() === "paid";
-                const isOverdue = !isPaid && b.due_date && new Date(b.due_date) < new Date();
-                return `<tr>
-                    <td class="primary">${fmt(b.appointment_date)}</td>
-                    <td>${b.doc_last ? "Dr. " + b.doc_last : "—"}</td>
-                    <td>$${parseFloat(b.total_amount || 0).toFixed(2)}</td>
-                    <td style="color:#10b981">$${parseFloat(b.insurance_paid_amount || 0).toFixed(2)}</td>
-                    <td style="font-weight:600;color:${isPaid ? "#10b981" : isOverdue ? "#e05c5c" : "#f59e0b"}">$${parseFloat(b.patient_owed || 0).toFixed(2)}</td>
-                    <td style="color:${isOverdue ? "#e05c5c" : "inherit"}">${fmt(b.due_date)}</td>
-                    <td>${pill(b.payment_status || "Unpaid")}</td>
-                </tr>`;
-            }).join("")
-            : `<tr><td colspan="7" class="table-empty">No billing records found</td></tr>`;
+        applyBillingFilters();
 
         /* ── Profile completeness banner ── */
         checkProfileCompleteness(patient);
@@ -347,6 +370,16 @@ let _allAppointments = [];
 let _allHistory      = [];
 let _allTreatments   = [];
 let _allBilling      = [];
+
+/* ── Pill toggle state ── */
+// Appointment pills — all on by default (show everything)
+let _apptPills = new Set(['Upcoming', 'Completed', 'Cancelled', 'No-Show']);
+
+// Health record section pills — all on by default
+let _histPills = new Set(['Medications', 'ActiveConditions', 'VisitNotes', 'Resolved']);
+
+// Billing pills — all on by default
+let _billPills = new Set(['Unpaid', 'Overdue', 'Paid']);
 
 /* ── Profile completeness check ── */
 let _patientId         = null;
@@ -937,30 +970,51 @@ async function submitProfile(e) {
 loadDashboard();
 
 /* ─────────────────────────────────────────────
-   APPOINTMENT FILTER + RENDER
+   APPOINTMENT PILLS + FILTER + RENDER
 ─────────────────────────────────────────────── */
+function toggleApptPill(value) {
+    if (_apptPills.has(value)) {
+        _apptPills.delete(value);
+    } else {
+        _apptPills.add(value);
+    }
+    const btn = document.getElementById("pill-appt-" + value);
+    if (btn) btn.classList.toggle("on", _apptPills.has(value));
+    applyApptFilters();
+}
+
 function applyApptFilters() {
-    const statusVal = (document.getElementById("apptStatusFilter")?.value || "all");
-    const typeVal   = (document.getElementById("apptTypeFilter")?.value   || "all");
-    const sortVal   = (document.getElementById("apptSortOrder")?.value    || "newest");
-    const search    = (document.getElementById("apptSearch")?.value       || "").toLowerCase().trim();
+    const typeVal  = (document.getElementById("apptTypeFilter")?.value || "all");
+    const sortVal  = (document.getElementById("apptSortOrder")?.value  || "newest");
+    const search   = (document.getElementById("apptSearch")?.value     || "").toLowerCase().trim();
 
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today      = new Date(); today.setHours(0,0,0,0);
+    const allPillsOff = _apptPills.size === 0;   // empty = show all (none deselected yet)
 
-    // Apply filters to all appointments
     let filtered = _allAppointments.filter(a => {
-        // Status filter
-        if (statusVal === "upcoming") {
-            if (!(a.status_name === "Scheduled" && new Date(a.appointment_date) >= today)) return false;
-        } else if (statusVal !== "all") {
-            if (a.status_name !== statusVal) return false;
+        // Pill filter — empty set means show everything; 4/4 on also shows everything
+        if (!allPillsOff) {
+            const isUpcoming   = a.status_name === "Scheduled" && new Date(a.appointment_date) >= today;
+            const isCompleted  = a.status_name === "Completed";
+            const isCancelled  = a.status_name === "Cancelled";
+            const isNoShow     = a.status_name === "No-Show" || a.status_name === "No Show";
+            // Edge case: scheduled but past date — lump with Upcoming pill
+            const isOverdueScheduled = a.status_name === "Scheduled" && new Date(a.appointment_date) < today;
+
+            const match =
+                (_apptPills.has("Upcoming")   && (isUpcoming || isOverdueScheduled)) ||
+                (_apptPills.has("Completed")  && isCompleted)  ||
+                (_apptPills.has("Cancelled")  && isCancelled)  ||
+                (_apptPills.has("No-Show")    && isNoShow);
+
+            if (!match) return false;
         }
         // Type filter
         if (typeVal !== "all" && (a.appointment_type || "General") !== typeVal) return false;
         // Search
         if (search) {
-            const haystack = `${a.doc_first} ${a.doc_last} ${a.reason_for_visit} ${a.appointment_type}`.toLowerCase();
-            if (!haystack.includes(search)) return false;
+            const hay = `${a.doc_first} ${a.doc_last} ${a.reason_for_visit} ${a.appointment_type}`.toLowerCase();
+            if (!hay.includes(search)) return false;
         }
         return true;
     });
@@ -971,29 +1025,26 @@ function applyApptFilters() {
         return sortVal === "oldest" ? da - db : db - da;
     });
 
-    // Split into upcoming / past for sub-tables
+    // Split
     const upcoming = filtered.filter(a => a.status_name === "Scheduled" && new Date(a.appointment_date) >= today);
-    const past     = filtered.filter(a => a.status_name !== "Scheduled" || new Date(a.appointment_date) < today);
+    const past     = filtered.filter(a => !(a.status_name === "Scheduled" && new Date(a.appointment_date) >= today));
 
     // Count badge
     const countEl = document.getElementById("apptFilterCount");
     if (countEl) {
-        const isFiltered = statusVal !== "all" || typeVal !== "all" || search;
+        const isFiltered = (!allPillsOff && _apptPills.size < 4) || typeVal !== "all" || search;
         countEl.textContent = isFiltered
             ? `${filtered.length} of ${_allAppointments.length} appointments match`
             : `${_allAppointments.length} total appointments`;
     }
 
-    // Reset button visibility
-    const isActive = statusVal !== "all" || typeVal !== "all" || search;
-    const resetBtn = document.getElementById("apptResetBtn");
-    if (resetBtn) resetBtn.classList.toggle("visible", isActive);
-
-    // Mark active filters
-    ["apptStatusFilter","apptTypeFilter"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle("active-filter", el.value !== "all");
-    });
+    // Sub-section visibility
+    const showUpcoming = allPillsOff || _apptPills.has("Upcoming");
+    const showPast     = allPillsOff || _apptPills.has("Completed") || _apptPills.has("Cancelled") || _apptPills.has("No-Show");
+    const upSec   = document.getElementById("apptUpcomingSection");
+    const pastSec = document.getElementById("apptPastSection");
+    if (upSec)   upSec.style.display   = showUpcoming ? "" : "none";
+    if (pastSec) pastSec.style.display  = showPast    ? "" : "none";
 
     // Render upcoming
     const upBody = document.getElementById("apptUpcomingBody");
@@ -1009,7 +1060,7 @@ function applyApptFilters() {
                 <td>${pill(a.status_name)}</td>
                 <td><button onclick="cancelAppointment(${a.appointment_id})" style="padding:4px 10px;font-size:11px;background:none;border:1px solid #e05c5c;color:#e05c5c;border-radius:6px;cursor:pointer;font-family:inherit">Cancel</button></td>
             </tr>`).join("")
-            : `<tr><td colspan="8" class="table-empty">${statusVal !== "all" || search ? "No matching upcoming appointments" : "No upcoming appointments"}</td></tr>`;
+            : `<tr><td colspan="8" class="table-empty">No upcoming appointments</td></tr>`;
     }
 
     // Render past
@@ -1043,20 +1094,16 @@ function applyApptFilters() {
                     <td>${billCell}</td>
                 </tr>`;
             }).join("")
-            : `<tr><td colspan="7" class="table-empty">${statusVal !== "all" || search ? "No matching past appointments" : "No past appointments on record"}</td></tr>`;
+            : `<tr><td colspan="7" class="table-empty">No past appointments on record</td></tr>`;
     }
-
-    // Show/hide sub-sections based on filter
-    const showUpcoming = statusVal === "all" || statusVal === "upcoming";
-    const showPast     = statusVal === "all" || statusVal !== "upcoming";
-    const upSec  = document.getElementById("apptUpcomingSection");
-    const pastSec = document.getElementById("apptPastSection");
-    if (upSec)  upSec.style.display  = showUpcoming ? "" : "none";
-    if (pastSec) pastSec.style.display = showPast    ? "" : "none";
 }
 
 function resetApptFilters() {
-    ["apptStatusFilter","apptTypeFilter","apptSortOrder"].forEach(id => {
+    _apptPills = new Set(["Upcoming", "Completed", "Cancelled", "No-Show"]);
+    ["Upcoming", "Completed", "Cancelled", "No-Show"].forEach(k => {
+        document.getElementById("pill-appt-" + k)?.classList.add("on");
+    });
+    ["apptTypeFilter","apptSortOrder"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.selectedIndex = 0;
     });
@@ -1066,16 +1113,58 @@ function resetApptFilters() {
 }
 
 /* ─────────────────────────────────────────────
+   HEALTH RECORD PILLS + SECTION VISIBILITY
+─────────────────────────────────────────────── */
+function toggleHistPill(key) {
+    if (_histPills.has(key)) {
+        _histPills.delete(key);
+    } else {
+        _histPills.add(key);
+    }
+    const btn = document.getElementById("pill-hist-" + key);
+    if (btn) btn.classList.toggle("on", _histPills.has(key));
+    applyHistSectionVisibility();
+}
+
+function applyHistSectionVisibility() {
+    const allOff = _histPills.size === 0;  // no pills selected = show everything
+
+    const showMeds    = allOff || _histPills.has("Medications");
+    const showActive  = allOff || _histPills.has("ActiveConditions");
+    const showResolved= allOff || _histPills.has("Resolved");
+    const showNotes   = allOff || _histPills.has("VisitNotes");
+
+    // Medications section
+    const medSec = document.getElementById("histSection-Medications");
+    if (medSec) medSec.style.display = showMeds ? "" : "none";
+
+    // Active conditions inner section
+    const activeSec = document.getElementById("activeConditionsSection");
+    if (activeSec) activeSec.style.display = showActive ? "" : "none";
+
+    // Resolved conditions inner section
+    const resolvedSec = document.getElementById("resolvedConditionsSection");
+    if (resolvedSec) resolvedSec.style.display = showResolved ? "" : "none";
+
+    // Health Conditions parent block — hide if both active and resolved are off
+    const condBlock = document.getElementById("histConditionsBlock");
+    if (condBlock) condBlock.style.display = (showActive || showResolved) ? "" : "none";
+
+    // Visit Notes section
+    const notesSec = document.getElementById("histSection-VisitNotes");
+    if (notesSec) notesSec.style.display = showNotes ? "" : "none";
+}
+
+/* ─────────────────────────────────────────────
    HEALTH RECORDS FILTER + RENDER
 ─────────────────────────────────────────────── */
 function applyHistFilters() {
-    const statusVal = (document.getElementById("histStatusFilter")?.value || "all");
-    const sortVal   = (document.getElementById("histSortOrder")?.value    || "newest");
-    const search    = (document.getElementById("histSearch")?.value       || "").toLowerCase().trim();
+    const sortVal = (document.getElementById("histSortOrder")?.value || "newest");
+    const search  = (document.getElementById("histSearch")?.value    || "").toLowerCase().trim();
 
     const adminConditions = ["No-Show", "Appointment Status Correction"];
 
-    // Strip admin entries, extract notes separately
+    // Strip admin entries, separate notes
     const visibleHistory = _allHistory.filter(h =>
         !adminConditions.some(a => (h.condition || "").startsWith(a))
     );
@@ -1087,13 +1176,6 @@ function applyHistFilters() {
     let conditions = visibleHistory.filter(h =>
         (h.condition || "").toLowerCase() !== "clinical note"
     );
-
-    // Apply status filter
-    if (statusVal === "active") {
-        conditions = conditions.filter(h => (h.status || "").toLowerCase() === "active");
-    } else if (statusVal === "resolved") {
-        conditions = conditions.filter(h => (h.status || "").toLowerCase() !== "active");
-    }
 
     // Apply search
     if (search) {
@@ -1113,30 +1195,14 @@ function applyHistFilters() {
     const countEl = document.getElementById("histFilterCount");
     const totalConditions = visibleHistory.filter(h => (h.condition || "").toLowerCase() !== "clinical note").length;
     if (countEl) {
-        const isFiltered = statusVal !== "all" || search;
-        countEl.textContent = isFiltered
+        countEl.textContent = search
             ? `${conditions.length} of ${totalConditions} conditions match`
             : `${totalConditions} conditions on record`;
     }
 
-    // Reset button
-    const isActive = statusVal !== "all" || search;
-    const resetBtn = document.getElementById("histResetBtn");
-    if (resetBtn) resetBtn.classList.toggle("visible", isActive);
-    const sf = document.getElementById("histStatusFilter");
-    if (sf) sf.classList.toggle("active-filter", sf.value !== "all");
-
     // Split active / resolved
     const active   = conditions.filter(h => (h.status || "").toLowerCase() === "active");
     const resolved = conditions.filter(h => (h.status || "").toLowerCase() !== "active");
-
-    // Show/hide sections based on filter
-    const showActive   = statusVal === "all" || statusVal === "active";
-    const showResolved = statusVal === "all" || statusVal === "resolved";
-    const activeSec   = document.getElementById("activeConditionsSection");
-    const resolvedSec = document.getElementById("resolvedConditionsSection");
-    if (activeSec)   activeSec.style.display   = showActive   ? "" : "none";
-    if (resolvedSec) resolvedSec.style.display  = showResolved ? "" : "none";
 
     // Active conditions — card layout
     const activeEl = document.getElementById("activeConditionsBody");
@@ -1169,7 +1235,7 @@ function applyHistFilters() {
             : `<tr><td colspan="4" class="table-empty">${search ? "No resolved conditions match your search." : "No resolved conditions on record"}</td></tr>`;
     }
 
-    // Visit notes (not filtered — always show all)
+    // Visit notes — always render all (not filterable by search/sort for privacy)
     const notesEl = document.getElementById("visitNotesBody");
     if (notesEl) {
         notesEl.innerHTML = visitNotes.length
@@ -1185,13 +1251,18 @@ function applyHistFilters() {
                 </div>`).join("")
             : `<p class="table-empty" style="padding:8px 0">No visit notes on record yet. Notes are added after completed appointments.</p>`;
     }
+
+    // Re-apply section visibility after re-render
+    applyHistSectionVisibility();
 }
 
 function resetHistFilters() {
-    ["histStatusFilter","histSortOrder"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.selectedIndex = 0;
+    _histPills = new Set(["Medications", "ActiveConditions", "VisitNotes", "Resolved"]);
+    ["Medications", "ActiveConditions", "VisitNotes", "Resolved"].forEach(k => {
+        document.getElementById("pill-hist-" + k)?.classList.add("on");
     });
+    const sortEl = document.getElementById("histSortOrder");
+    if (sortEl) sortEl.selectedIndex = 0;
     const s = document.getElementById("histSearch");
     if (s) s.value = "";
     applyHistFilters();
@@ -1227,6 +1298,131 @@ function renderMedications() {
             ${followUp}
         </div>`;
     }).join("");
+}
+
+/* ─────────────────────────────────────────────
+   BILLING PILLS + SUMMARY + FILTER + RENDER
+─────────────────────────────────────────────── */
+function toggleBillingPill(value) {
+    if (_billPills.has(value)) {
+        _billPills.delete(value);
+    } else {
+        _billPills.add(value);
+    }
+    const btn = document.getElementById("pill-bill-" + value);
+    if (btn) btn.classList.toggle("on", _billPills.has(value));
+    applyBillingFilters();
+}
+
+function applyBillingFilters() {
+    const timeRange   = document.getElementById("billTimeRange")?.value || "all";
+    const allPillsOff = _billPills.size === 0;
+
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    // Time range — compute start cutoff
+    let startDate = null;
+    if (timeRange === "month") {
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else if (timeRange === "3months") {
+        startDate = new Date(today);
+        startDate.setMonth(startDate.getMonth() - 3);
+    } else if (timeRange === "year") {
+        startDate = new Date(today.getFullYear(), 0, 1);
+    }
+
+    let filtered = _allBilling.filter(b => {
+        // Time range
+        if (startDate && b.appointment_date) {
+            if (new Date(b.appointment_date) < startDate) return false;
+        }
+        // Pill filter — empty = show all
+        if (!allPillsOff) {
+            const isPaid    = (b.payment_status || "").toLowerCase() === "paid";
+            const isOverdue = !isPaid && b.due_date && new Date(b.due_date) < today;
+            const isUnpaid  = !isPaid && !isOverdue;
+
+            const match =
+                (_billPills.has("Unpaid")  && isUnpaid)  ||
+                (_billPills.has("Overdue") && isOverdue) ||
+                (_billPills.has("Paid")    && isPaid);
+            if (!match) return false;
+        }
+        return true;
+    });
+
+    // ── Summary calculations ──
+    const totalBilled = filtered.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
+    const totalInsPaid = filtered.reduce((s, b) => s + parseFloat(b.insurance_paid_amount || 0), 0);
+    const paidBills   = filtered.filter(b => (b.payment_status || "").toLowerCase() === "paid");
+    const unpaidBills = filtered.filter(b => (b.payment_status || "").toLowerCase() !== "paid");
+    const totalOutOfPocket = paidBills.reduce((s, b) => s + parseFloat(b.patient_owed || 0), 0);
+    const totalOwed        = unpaidBills.reduce((s, b) => s + parseFloat(b.patient_owed || 0), 0);
+
+    // Next due — earliest unpaid bill with a due date
+    const nextDue = unpaidBills
+        .filter(b => b.due_date)
+        .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+
+    const periodLabel = timeRange === "month" ? "This month" :
+                        timeRange === "3months" ? "Last 3 months" :
+                        timeRange === "year"  ? "This year" : "All time";
+
+    // Render summary cards
+    const summaryEl = document.getElementById("billingSummary");
+    if (summaryEl) {
+        summaryEl.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:16px 20px">
+                <div style="background:#f8fbff;border:1px solid #e0e4f0;border-radius:10px;padding:14px 16px">
+                    <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Total Billed</div>
+                    <div style="font-size:22px;font-weight:800;color:#1f2a6d">$${totalBilled.toFixed(2)}</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:3px">${periodLabel}</div>
+                </div>
+                <div style="background:#f0f4ff;border:1px solid #c7d7fd;border-radius:10px;padding:14px 16px">
+                    <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Insurance Covered</div>
+                    <div style="font-size:22px;font-weight:800;color:#3b82f6">$${totalInsPaid.toFixed(2)}</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:3px">Paid by your plan</div>
+                </div>
+                <div style="background:${totalOwed > 0 ? "#fff5f5" : "#f0fdf4"};border:1px solid ${totalOwed > 0 ? "#fecaca" : "#bbf7d0"};border-radius:10px;padding:14px 16px">
+                    <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Outstanding</div>
+                    <div style="font-size:22px;font-weight:800;color:${totalOwed > 0 ? "#e05c5c" : "#10b981"}">$${totalOwed.toFixed(2)}</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:3px">Balance due</div>
+                </div>
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px">
+                    <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">You've Paid</div>
+                    <div style="font-size:22px;font-weight:800;color:#10b981">$${totalOutOfPocket.toFixed(2)}</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:3px">Out of pocket</div>
+                </div>
+                ${nextDue ? `
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 16px">
+                    <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Next Payment</div>
+                    <div style="font-size:22px;font-weight:800;color:#d97706">$${parseFloat(nextDue.patient_owed||0).toFixed(2)}</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:3px">Due ${fmt(nextDue.due_date)}</div>
+                </div>` : ""}
+            </div>`;
+    }
+
+    // Render billing table
+    const bBody = document.getElementById("billingBody");
+    if (bBody) {
+        bBody.innerHTML = filtered.length
+            ? filtered.map(b => {
+                const isPaid    = (b.payment_status || "").toLowerCase() === "paid";
+                const isOverdue = !isPaid && b.due_date && new Date(b.due_date) < today;
+                return `<tr>
+                    <td class="primary">${fmt(b.appointment_date)}</td>
+                    <td>${b.doc_last ? "Dr. " + b.doc_last : "—"}</td>
+                    <td>$${parseFloat(b.total_amount || 0).toFixed(2)}</td>
+                    <td style="color:#3b82f6">$${parseFloat(b.insurance_paid_amount || 0).toFixed(2)}</td>
+                    <td style="font-weight:600;color:${isPaid ? "#10b981" : isOverdue ? "#e05c5c" : "#f59e0b"}">
+                        $${parseFloat(b.patient_owed || 0).toFixed(2)}
+                    </td>
+                    <td style="color:${isOverdue ? "#e05c5c" : "inherit"}">${fmt(b.due_date)}</td>
+                    <td>${pill(b.payment_status || "Unpaid")}</td>
+                </tr>`;
+            }).join("")
+            : `<tr><td colspan="7" class="table-empty">No billing records match your filters.</td></tr>`;
+    }
 }
 
 /* ── Booking Modal ── */
