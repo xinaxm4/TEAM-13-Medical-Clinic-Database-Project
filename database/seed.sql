@@ -4,10 +4,25 @@
 --  number, special character — all pre-hashed with bcrypt.
 --
 --  Demo credentials:
---    Patients   → username: their email    | password: Patient@123
---    Physicians → username: dr.lastname    | password: Doctor@123
---    Staff      → username: staff.lastname | password: Staff@123
+--    Super Admin → username: admin@ath.admin.com          | password: Admin@123
+--    Clinic Admin→ username: lastname@ath.admin.com       | password: Admin@123
+--    Physicians  → username: lastname@ath.doctor.com      | password: Doctor@123
+--    Staff       → username: lastname@ath.staff.com       | password: Staff@123
+--    Patients    → username: their email                  | password: Patient@123
+--
+--  Clinic Admins (one per clinic):
+--    henderson@ath.admin.com  → Dallas (clinic 1)
+--    patel@ath.admin.com      → Houston (clinic 2)
+--    morrison@ath.admin.com   → Austin (clinic 3)
+--    fitzgerald@ath.admin.com → New York (clinic 4)
+--    oconnor@ath.admin.com    → Chicago (clinic 5)
+--    ramirez@ath.admin.com    → Los Angeles (clinic 6)
+--    blackwood@ath.admin.com  → Phoenix (clinic 7)
+--    chen@ath.admin.com       → Seattle (clinic 8)
 -- ============================================================
+
+-- Add clinic_id to users table (NULL = global super admin)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS clinic_id INT NULL DEFAULT NULL;
 
 -- ─── Reference Tables ───────────────────────────────────────
 
@@ -239,58 +254,73 @@ INSERT IGNORE INTO staff (staff_id, first_name, last_name, date_of_birth, depart
 -- ─── Users (login accounts) ─────────────────────────────────
 -- Passwords bcrypt-hashed (10 rounds)
 -- Patient@123  → $2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy
--- Doctor@123   → $2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6
--- Staff@123    → $2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6
+-- Doctor@123   → $2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS
+-- Staff@123    → $2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.
+-- Admin@123    → $2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu
 
-INSERT IGNORE INTO users (user_id, username, password_hash, role, physician_id, staff_id) VALUES
+INSERT IGNORE INTO users (user_id, username, password_hash, role, physician_id, staff_id, clinic_id) VALUES
   -- Patients (1–5)
-  (1,  'alex.smith@email.com',    '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL),
-  (2,  'taylor.jones@email.com',  '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL),
-  (3,  'morgan.w@email.com',      '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL),
-  (4,  'jordan.brown@email.com',  '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL),
-  (5,  'casey.davis@email.com',   '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL),
-  -- Physicians — original 6
-  (6,  'dr.johnson',   '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 1,  NULL),
-  (7,  'dr.garcia',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 2,  NULL),
-  (8,  'dr.moore',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 3,  NULL),
-  (9,  'dr.white',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 4,  NULL),
-  (10, 'dr.davis',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 5,  NULL),
-  (11, 'dr.foster',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 6,  NULL),
-  -- Physicians — new
-  (15, 'dr.chen',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 7,  NULL),
-  (16, 'dr.kim',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 8,  NULL),
-  (17, 'dr.martinez',  '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 9,  NULL),
-  (18, 'dr.thompson',  '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 10, NULL),
-  (19, 'dr.lee',       '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 11, NULL),
-  (20, 'dr.snguyen',   '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 12, NULL),
-  (21, 'dr.rivera',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 13, NULL),
-  (22, 'dr.scott',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 14, NULL),
-  (23, 'dr.tbrown',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 15, NULL),
-  (24, 'dr.npatel',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 16, NULL),
-  (25, 'dr.hall',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 17, NULL),
-  (26, 'dr.wright',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 18, NULL),
-  (27, 'dr.chan',      '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 19, NULL),
-  (28, 'dr.monroe',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 20, NULL),
-  (29, 'dr.wilson',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 21, NULL),
-  (30, 'dr.clark',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 22, NULL),
-  (31, 'dr.lewis',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 23, NULL),
-  (32, 'dr.sharma',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 24, NULL),
-  (33, 'dr.torres',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 25, NULL),
-  (34, 'dr.evans',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 26, NULL),
-  (35, 'dr.scollins',  '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 27, NULL),
-  (36, 'dr.chill',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 28, NULL),
-  (37, 'dr.baker',     '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 29, NULL),
-  (38, 'dr.nelson',    '$2b$10$iYtcOYwO7FI7XmaNKeVAYev4WdRcLNaYzcT08LtJoBxGdGXHElDk6', 'physician', 30, NULL),
-  -- Staff — original 3
-  (12, 'staff.adams',  '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 1),
-  (13, 'staff.brooks', '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 2),
-  (14, 'staff.taylor', '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 3),
-  -- Staff — new
-  (39, 'staff.gomez',  '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 4),
-  (40, 'staff.dkim',   '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 5),
-  (41, 'staff.lin',    '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 6),
-  (42, 'staff.mendez', '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 7),
-  (43, 'staff.bross',  '$2b$10$1lOpxTZx1crCArWmk/jP6OPz40BsG3qPJeTQQP5WF6y0PveuhvnA6', 'staff',     NULL, 8);
+  (1,  'alex.smith@email.com',    '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL, NULL),
+  (2,  'taylor.jones@email.com',  '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL, NULL),
+  (3,  'morgan.w@email.com',      '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL, NULL),
+  (4,  'jordan.brown@email.com',  '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL, NULL),
+  (5,  'casey.davis@email.com',   '$2b$10$2BNnadEL3Jfi23zImdwLM.uDE.3W3.51V2Xa2FVIUfJIW40dhz2vy', 'patient',   NULL, NULL, NULL),
+  -- Physicians (lastname@ath.doctor.com / Doctor@123)
+  (6,  'johnson@ath.doctor.com',   '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 1,  NULL, NULL),
+  (7,  'garcia@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 2,  NULL, NULL),
+  (8,  'moore@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 3,  NULL, NULL),
+  (9,  'white@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 4,  NULL, NULL),
+  (10, 'davis@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 5,  NULL, NULL),
+  (11, 'foster@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 6,  NULL, NULL),
+  (15, 'chen@ath.doctor.com',      '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 7,  NULL, NULL),
+  (16, 'kim@ath.doctor.com',       '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 8,  NULL, NULL),
+  (17, 'martinez@ath.doctor.com',  '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 9,  NULL, NULL),
+  (18, 'thompson@ath.doctor.com',  '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 10, NULL, NULL),
+  (19, 'lee@ath.doctor.com',       '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 11, NULL, NULL),
+  (20, 'snguyen@ath.doctor.com',   '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 12, NULL, NULL),
+  (21, 'rivera@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 13, NULL, NULL),
+  (22, 'scott@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 14, NULL, NULL),
+  (23, 'tbrown@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 15, NULL, NULL),
+  (24, 'npatel@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 16, NULL, NULL),
+  (25, 'hall@ath.doctor.com',      '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 17, NULL, NULL),
+  (26, 'wright@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 18, NULL, NULL),
+  (27, 'chan@ath.doctor.com',      '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 19, NULL, NULL),
+  (28, 'monroe@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 20, NULL, NULL),
+  (29, 'wilson@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 21, NULL, NULL),
+  (30, 'clark@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 22, NULL, NULL),
+  (31, 'lewis@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 23, NULL, NULL),
+  (32, 'sharma@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 24, NULL, NULL),
+  (33, 'torres@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 25, NULL, NULL),
+  (34, 'evans@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 26, NULL, NULL),
+  (35, 'scollins@ath.doctor.com',  '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 27, NULL, NULL),
+  (36, 'chill@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 28, NULL, NULL),
+  (37, 'baker@ath.doctor.com',     '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 29, NULL, NULL),
+  (38, 'nelson@ath.doctor.com',    '$2b$10$FflEttnDtE9rlMCiWdmg.eAF26SD2Aq3xcMggSF39wkessRXtb8bS', 'physician', 30, NULL, NULL),
+  -- Staff (lastname@ath.staff.com / Staff@123)
+  (12, 'adams@ath.staff.com',   '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 1, NULL),
+  (13, 'brooks@ath.staff.com',  '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 2, NULL),
+  (14, 'taylor@ath.staff.com',  '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 3, NULL),
+  (39, 'gomez@ath.staff.com',   '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 4, NULL),
+  (40, 'dkim@ath.staff.com',    '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 5, NULL),
+  (41, 'lin@ath.staff.com',     '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 6, NULL),
+  (42, 'mendez@ath.staff.com',  '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 7, NULL),
+  (43, 'bross@ath.staff.com',   '$2b$10$pfu1W3brrKj0eR2hRfzgyOKpozU8R7mWsIF5ASoQwKWTBERyqKrh.', 'staff', NULL, 8, NULL);
+
+-- ─── Admin Users ─────────────────────────────────────────────
+-- Admin@123 → $2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu
+
+INSERT IGNORE INTO users (username, password_hash, role, physician_id, staff_id, clinic_id) VALUES
+  -- Global super admin (clinic_id = NULL = access to all)
+  ('admin@ath.admin.com',       '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, NULL),
+  -- Clinic admins (one per clinic)
+  ('henderson@ath.admin.com',   '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 1),
+  ('patel@ath.admin.com',       '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 2),
+  ('morrison@ath.admin.com',    '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 3),
+  ('fitzgerald@ath.admin.com',  '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 4),
+  ('oconnor@ath.admin.com',     '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 5),
+  ('ramirez@ath.admin.com',     '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 6),
+  ('blackwood@ath.admin.com',   '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 7),
+  ('chen@ath.admin.com',        '$2b$10$N5BtuSlpfCMLZNLbRruyQu5A9gxBcfKIdduQpnu5v1jp28MrwfXQu', 'admin', NULL, NULL, 8);
 
 -- ─── Patients (5 — linked to user accounts) ─────────────────
 
