@@ -86,7 +86,7 @@ const registerUser = (req, res) => {
     }
   }
 
-  const checkEmailSql = "SELECT * FROM users WHERE username = ?";
+  const checkEmailSql = "SELECT * FROM users WHERE email = ?";
 
   db.query(checkEmailSql, [email], (checkErr, checkResults) => {
     if (checkErr) {
@@ -98,7 +98,7 @@ const registerUser = (req, res) => {
     }
 
     const insertSql =
-      "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)";
+      "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)";
 
     const hashedPassword = bcrypt.hashSync(password, 10);
 
@@ -151,7 +151,7 @@ const loginUser = (req, res) => {
     return res.status(429).json({ error: "Too many login attempts for this account. Please wait 15 minutes and try again." });
   }
 
-  const sql = "SELECT * FROM users WHERE username = ?";
+  const sql = "SELECT * FROM users WHERE email = ?";
 
   db.query(sql, [email], (err, results) => {
     if (err) {
@@ -181,8 +181,8 @@ const loginUser = (req, res) => {
       message: "Login successful",
       user: {
         id: user.user_id,
-        name: user.username,
-        email: user.username,
+        name: user.email,
+        email: user.email,
         role: user.role
       }
     });
