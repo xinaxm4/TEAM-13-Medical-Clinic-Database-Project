@@ -711,16 +711,6 @@ const getClinicAppointments = (req, res) => {
   });
 };
 
-module.exports = {
-  loginAdmin, getAdminDashboard, getClinicReport,
-  getAllPhysicians, getAllStaff, getDepartments, getOffices,
-  addPhysician, addStaff,
-  getRevenueReport, getARReport, getAppointmentReport,
-  getPhysicianProductivity, getReferralReport, getInsuranceBreakdown,
-  getClinicAppointments,
-  getPayerScorecard, getPayerDetail
-};
-
 /* ─────────────────────────────────────────────
    GET /api/admin/insurance/scorecard
    Aggregate stats per payer, clinic-scoped.
@@ -794,4 +784,14 @@ const getPayerDetail = (req, res) => {
   const finish = () => { if (++done === 2) res.json(data); };
   db.query(monthlySql, base, (e, r) => { if (e) return res.status(500).json({ message: e.message }); data.monthly = r; finish(); });
   db.query(claimsSql,  base, (e, r) => { if (e) return res.status(500).json({ message: e.message }); data.claims  = r; finish(); });
+};
+
+module.exports = {
+  loginAdmin, getAdminDashboard, getClinicReport,
+  getAllPhysicians, getAllStaff, getDepartments, getOffices,
+  addPhysician, addStaff,
+  getRevenueReport, getARReport, getAppointmentReport,
+  getPhysicianProductivity, getReferralReport, getInsuranceBreakdown,
+  getClinicAppointments,
+  getPayerScorecard, getPayerDetail
 };
