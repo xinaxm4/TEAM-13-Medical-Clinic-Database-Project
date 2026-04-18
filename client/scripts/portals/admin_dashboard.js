@@ -4,8 +4,38 @@ if (!user || user.role !== "admin") {
     window.location.href = "/client/auth/admin_login.html";
 }
 
-/* ── Sidebar name ── */
-document.getElementById("sidebarName").textContent = user?.username || "Administrator";
+/* ── Sidebar name + location ── */
+const displayName = (user?.firstName && user?.lastName)
+    ? `${user.firstName} ${user.lastName}`
+    : user?.username || "Administrator";
+document.getElementById("sidebarName").textContent = displayName;
+
+// Location badge in sidebar
+const sidebarLoc = document.getElementById("sidebarLocation");
+if (sidebarLoc) {
+    sidebarLoc.textContent = user?.isGlobal
+        ? "🌐 All Locations"
+        : `📍 ${user?.clinicCity || user?.clinicName || ""}`;
+}
+
+// Greeting card
+const greetName = document.getElementById("greetName");
+if (greetName) greetName.textContent = `Welcome, ${user?.firstName || "Administrator"}.`;
+
+const greetLocation = document.getElementById("greetLocation");
+const greetLocationText = document.getElementById("greetLocationText");
+if (greetLocation && greetLocationText) {
+    if (user?.isGlobal) {
+        greetLocationText.textContent = "Global Admin — All Locations";
+    } else {
+        greetLocationText.textContent = `${user?.clinicName || ""}${user?.clinicCity ? ` · ${user.clinicCity}, ${user?.clinicState || ""}` : ""}`;
+    }
+    greetLocation.style.display = "block";
+}
+
+// Badge
+const adminBadge = document.getElementById("adminBadge");
+if (adminBadge) adminBadge.textContent = user?.isGlobal ? "Global Admin" : "Clinic Admin";
 
 /* ── Logout ── */
 function logoutUser() {

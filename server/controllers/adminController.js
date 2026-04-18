@@ -32,9 +32,11 @@ const loginAdmin = (req, res) => {
     return res.status(429).json({ message: "Too many login attempts. Please wait 15 minutes." });
 
   db.query(
-    `SELECT u.*, a.first_name, a.last_name, a.admin_id
+    `SELECT u.*, a.first_name, a.last_name, a.admin_id,
+            c.clinic_name, c.city AS clinic_city, c.state AS clinic_state
      FROM users u
      LEFT JOIN admin a ON u.admin_id = a.admin_id
+     LEFT JOIN clinic c ON u.clinic_id = c.clinic_id
      WHERE u.username = ? AND u.role = 'admin'`,
     [username],
     (err, rows) => {
@@ -51,14 +53,17 @@ const loginAdmin = (req, res) => {
       res.json({
         message: "Login successful",
         user: {
-          id:         user.user_id,
-          adminId:    user.admin_id,
-          username:   user.username,
-          firstName:  user.first_name,
-          lastName:   user.last_name,
-          role:       user.role,
-          clinicId:   user.clinic_id,           // null = global admin
-          isGlobal:   user.clinic_id === null
+          id:          user.user_id,
+          adminId:     user.admin_id,
+          username:    user.username,
+          firstName:   user.first_name,
+          lastName:    user.last_name,
+          role:        user.role,
+          clinicId:    user.clinic_id,
+          clinicName:  user.clinic_name  || "All Locations",
+          clinicCity:  user.clinic_city  || null,
+          clinicState: user.clinic_state || null,
+          isGlobal:    user.clinic_id === null
         }
       });
     }

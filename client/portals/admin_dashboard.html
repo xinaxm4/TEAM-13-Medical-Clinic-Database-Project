@@ -75,6 +75,7 @@
         <div class="sidebar-logo">
             <div class="clinic-name">Audit Trail Health</div>
             <div class="portal-label">Admin Portal</div>
+            <div id="sidebarLocation" style="font-size:11px;font-weight:700;color:#4a90d9;margin-top:4px;padding:0 16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section-label">Menu</div>
@@ -109,11 +110,14 @@
 
             <div class="greeting-card">
                 <div>
-                    <h2>Welcome, Administrator.</h2>
+                    <h2 id="greetName">Welcome, Administrator.</h2>
                     <p id="greetSub">Loading system overview…</p>
+                    <div id="greetLocation" style="margin-top:8px;font-size:15px;font-weight:700;color:#1a3a6d;display:none;">
+                        📍 <span id="greetLocationText"></span>
+                    </div>
                 </div>
                 <div class="greeting-meta">
-                    <span class="greeting-badge">Admin</span>
+                    <span class="greeting-badge" id="adminBadge">Admin</span>
                     <span style="font-size:11px;color:#aaa;margin-top:4px" id="todayDate"></span>
                 </div>
             </div>
