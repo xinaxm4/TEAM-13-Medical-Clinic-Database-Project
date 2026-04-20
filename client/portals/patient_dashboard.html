@@ -383,7 +383,6 @@
                         <h3>Specialist Referrals</h3>
                         <p>Referrals issued by your primary physician</p>
                     </div>
-                    <button class="profile-edit-btn" id="requestReferralBtn" onclick="openReferralModal()" style="display:none">+ Request Referral</button>
                 </div>
                 <div id="referralGateMsg" style="display:none;padding:16px 24px">
                     <div style="background:#fef9ec;border:1px solid #f59e0b44;border-radius:10px;padding:14px 18px;font-size:13px;color:#92400e;line-height:1.6">
@@ -600,27 +599,6 @@
                         </div>
                         <div style="font-size:11px;color:#aaa;text-align:center">For medical emergencies, call <strong style="color:#e05c5c">911</strong></div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Request Referral Modal ── -->
-        <div class="modal-overlay hidden" id="referralModal">
-            <div class="modal-box" style="max-width:480px">
-                <div class="modal-header"><h3>Request a Specialist Referral</h3><button class="modal-close" onclick="closeReferralModal()">&#10005;</button></div>
-                <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
-                    <div class="form-group">
-                        <label class="form-label">Specialist</label>
-                        <select class="form-input" id="rf_specialist">
-                            <option value="">Loading specialists…</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Reason for Referral</label>
-                        <textarea class="form-input" id="rf_reason" rows="4" placeholder="Describe your symptoms or reason for requesting a specialist…" style="resize:vertical"></textarea>
-                    </div>
-                    <div id="referralFormError" style="color:#e05c5c;font-size:13px;display:none"></div>
-                    <button class="btn-primary" onclick="submitReferralRequest()">Submit Request</button>
                 </div>
             </div>
         </div>

@@ -310,19 +310,10 @@ async function loadDashboard() {
         }
 
         /* ── Referrals ── */
-        const refBtn  = document.getElementById("requestReferralBtn");
         const gateMsg = document.getElementById("referralGateMsg");
         const refList = document.getElementById("referralsList");
 
-        if (patient.primary_physician_id) {
-            if (referralEligible) {
-                if (refBtn)  refBtn.style.display  = "";
-                if (gateMsg) gateMsg.style.display = "none";
-            } else {
-                if (refBtn)  refBtn.style.display  = "none";
-                if (gateMsg) gateMsg.style.display = "";
-            }
-        }
+        if (gateMsg) gateMsg.style.display = "none";
 
         if (refList) {
             if (!referrals || referrals.length === 0) {
@@ -625,67 +616,6 @@ function confirmCareChange() {
 function cancelCareChange() {
     const confirmEl = document.getElementById("careChangeConfirm");
     if (confirmEl) { confirmEl.style.display = "none"; confirmEl.dataset.shown = "false"; }
-}
-
-/* ── Referral Request Modal ── */
-async function openReferralModal() {
-    document.getElementById("referralModal").classList.remove("hidden");
-    document.body.style.overflow = "hidden";
-    const errEl = document.getElementById("referralFormError");
-    if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
-    document.getElementById("rf_reason").value = "";
-
-    // Load specialists from the patient's city
-    const spSelect = document.getElementById("rf_specialist");
-    spSelect.innerHTML = '<option value="">Loading…</option>';
-    try {
-        // Get patient's primary physician city from the care card data already on screen
-        const cityEl = document.querySelector("#careCard [data-city]") || document.querySelector("[data-city]");
-        // Fall back: fetch from the user's office city via specialists endpoint
-        // We store the city on the dashboard load; use a module-level variable
-        const city = _patientCity || "";
-        if (!city) { spSelect.innerHTML = '<option value="">No city found — update your profile first</option>'; return; }
-        const r = await fetch(`/api/patient/referral/specialists?city=${encodeURIComponent(city)}&user_id=${user.id}`);
-        const specialists = await r.json();
-        if (!specialists.length) {
-            spSelect.innerHTML = '<option value="">No specialists available in your city</option>';
-        } else {
-            spSelect.innerHTML = '<option value="">Choose a specialist…</option>' +
-                specialists.map(s => `<option value="${s.physician_id}">Dr. ${s.first_name} ${s.last_name} — ${s.specialty}</option>`).join("");
-        }
-    } catch(e) { spSelect.innerHTML = '<option value="">Could not load specialists</option>'; }
-}
-
-function closeReferralModal() {
-    document.getElementById("referralModal").classList.add("hidden");
-    document.body.style.overflow = "";
-}
-
-async function submitReferralRequest() {
-    const specialist_id    = document.getElementById("rf_specialist").value;
-    const referral_reason  = document.getElementById("rf_reason").value.trim();
-    const errEl = document.getElementById("referralFormError");
-
-    if (!specialist_id || !referral_reason) {
-        errEl.textContent = "Please select a specialist and describe your reason.";
-        errEl.style.display = "";
-        return;
-    }
-
-    try {
-        const r = await fetch("/api/patient/referral/request", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_id: user.id, specialist_id, referral_reason })
-        });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.message);
-        closeReferralModal();
-        loadDashboard();
-    } catch(err) {
-        errEl.textContent = err.message || "Could not submit request. Please try again.";
-        errEl.style.display = "";
-    }
 }
 
 /* ── Book with specialist from accepted referral ── */
