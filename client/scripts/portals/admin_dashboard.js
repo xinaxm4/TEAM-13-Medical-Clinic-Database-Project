@@ -692,21 +692,25 @@ function _computeScore(row) {
 
 /* ── All-payers cache ── */
 let _allPayers = [];
+let _insuranceOverview = null;
 
 /* ── Main loader ── */
 async function loadInsurance() {
     try {
-        const [scRes, alRes] = await Promise.all([
+        const [scRes, alRes, ovRes] = await Promise.all([
             fetch(`/api/admin/insurance/scorecard?user_id=${user.id}`),
-            fetch(`/api/admin/insurance/alerts?user_id=${user.id}`)
+            fetch(`/api/admin/insurance/alerts?user_id=${user.id}`),
+            fetch(`/api/admin/insurance/overview?user_id=${user.id}`)
         ]);
         _allPayers = await scRes.json();
         const alerts = alRes.ok ? await alRes.json() : [];
+        _insuranceOverview = ovRes.ok ? await ovRes.json() : null;
         if (!scRes.ok) throw new Error(_allPayers.message || "Could not load scorecard");
 
         _renderPayerPills(_allPayers);
         _renderAlertBanner(alerts);
         _renderAllPayersTable(_allPayers);
+        _renderInsuranceOverview(_insuranceOverview);
         if (_allPayers.length) selectPayer(_allPayers[0].insurance_id);
     } catch(e) {
         document.getElementById("insPayerPills").innerHTML =
@@ -1007,6 +1011,211 @@ function _renderAllPayersTable(payers) {
             <td><span style="color:${col};font-weight:700">${s.composite}</span></td>
         </tr>`;
     }).join("");
+}
+
+function _renderInsuranceOverview(overview) {
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    if (!overview) {
+        setText("ovActivePayers", "—");
+        setText("ovAvgReimb", "—");
+        setText("ovUnpaidRate", "—");
+        setText("ovCoveredPatients", "—");
+        const alerts = document.getElementById("insPortfolioAlerts");
+        if (alerts) alerts.innerHTML = `<div style="color:#aaa;font-size:13px;padding:10px 0">Could not load portfolio signals.</div>`;
+        return;
+    }
+
+    const summary = overview.summary || {};
+    setText("ovActivePayers", summary.active_payers ?? 0);
+    setText("ovAvgReimb", ((summary.avg_reimbursement_pct ?? 0) + "%"));
+    setText("ovUnpaidRate", ((summary.unpaid_claim_rate ?? 0) + "%"));
+    setText("ovCoveredPatients", summary.covered_patients ?? 0);
+
+    _renderOverviewReimbursementChart(overview.payerPerformance || []);
+    _renderOverviewStatusChart(overview.payerStatus || []);
+    _renderOverviewVolumeChart(overview.volumeTrend || []);
+    _renderOverviewTypesChart(overview.procedureMix || []);
+    _renderPortfolioAlerts(overview);
+}
+
+function _renderOverviewReimbursementChart(rows) {
+    _dChart("insOverviewBar");
+    const ctx = document.getElementById("insOverviewBar"); if (!ctx) return;
+    const labels = rows.map(r => r.provider_name);
+    const actual = rows.map(r => parseFloat(r.actual_reimb_pct) || 0);
+    const threshold = rows.map(r => parseFloat(r.threshold_pct) || 0);
+    _insCharts.insOverviewBar = new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets: [
+            { label: "Actual %", data: actual,
+              backgroundColor: actual.map((v, i) => threshold[i] > 0 && v < threshold[i] ? "#e05c5c" : "#4a90d9"),
+              borderRadius: 4 },
+            { label: "Threshold %", data: threshold, backgroundColor: "#d7ddea", borderRadius: 4 }
+        ]},
+        options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+            scales: {
+                y: { beginAtZero: true, max: 100, ticks: { callback: v => v + "%" } },
+                x: { ticks: { font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function _renderOverviewStatusChart(rows) {
+    _dChart("insOverviewStatus");
+    const ctx = document.getElementById("insOverviewStatus"); if (!ctx) return;
+    const labels = rows.map(r => r.provider_name);
+    const paid = rows.map(r => parseInt(r.paid_claims) || 0);
+    const unpaid = rows.map(r => parseInt(r.unpaid_claims) || 0);
+    _insCharts.insOverviewStatus = new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets: [
+            { label: "Paid", data: paid, backgroundColor: "rgba(13,122,96,0.8)", stack: "claims", borderRadius: 4 },
+            { label: "Unpaid", data: unpaid, backgroundColor: "rgba(224,92,92,0.7)", stack: "claims", borderRadius: 4 }
+        ]},
+        options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+            scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+        }
+    });
+}
+
+function _renderOverviewVolumeChart(rows) {
+    _dChart("insOverviewVolume");
+    const ctx = document.getElementById("insOverviewVolume"); if (!ctx) return;
+    const months = [...new Set(rows.map(r => r.month))].sort();
+    const labels = months.map(m => (rows.find(r => r.month === m) || {}).month_label || m);
+    const payers = [...new Set(rows.map(r => r.provider_name))];
+    const palette = ["#4a90d9", "#0d7a60", "#f0a43b", "#8f6de0", "#dd6b66", "#4aa6a1"];
+    _insCharts.insOverviewVolume = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels,
+            datasets: payers.map((payer, idx) => ({
+                label: payer,
+                data: months.map(month => {
+                    const row = rows.find(r => r.month === month && r.provider_name === payer);
+                    return row ? parseInt(row.completed_visits) || 0 : 0;
+                }),
+                borderColor: palette[idx % palette.length],
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 3
+            }))
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+            scales: { y: { beginAtZero: true }, x: { ticks: { font: { size: 10 } } } }
+        }
+    });
+}
+
+function _renderOverviewTypesChart(rows) {
+    _dChart("insOverviewTypes");
+    const ctx = document.getElementById("insOverviewTypes"); if (!ctx) return;
+    const types = [...new Set(rows.map(r => r.appointment_type))];
+    const payers = [...new Set(rows.map(r => r.provider_name))];
+    const palette = ["#4a90d9", "#9fd8c3", "#f7c56b", "#c9bef2", "#e59e97", "#77b7f0"];
+    _insCharts.insOverviewTypes = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: types,
+            datasets: payers.map((payer, idx) => ({
+                label: payer,
+                data: types.map(type => {
+                    const row = rows.find(r => r.appointment_type === type && r.provider_name === payer);
+                    return row ? parseFloat(row.avg_reimb_pct) || 0 : 0;
+                }),
+                backgroundColor: palette[idx % palette.length],
+                borderRadius: 3
+            }))
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+            scales: {
+                y: { beginAtZero: true, max: 100, ticks: { callback: v => v + "%" } },
+                x: { ticks: { font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function _renderPortfolioAlerts(overview) {
+    const el = document.getElementById("insPortfolioAlerts");
+    if (!el) return;
+
+    const performance = overview.payerPerformance || [];
+    const statusRows = overview.payerStatus || [];
+    const volumeRows = overview.volumeTrend || [];
+
+    const alerts = [];
+    performance.forEach(row => {
+        const actual = parseFloat(row.actual_reimb_pct) || 0;
+        const threshold = parseFloat(row.threshold_pct) || 0;
+        if (threshold > 0 && actual < threshold) {
+            alerts.push({
+                sev: "r",
+                t: `${row.provider_name} is averaging ${actual}% reimbursement against a ${threshold}% threshold`,
+                a: "This compares billing reimbursement performance against the active accepted-plan threshold."
+            });
+        }
+    });
+
+    statusRows.forEach(row => {
+        const paid = parseInt(row.paid_claims) || 0;
+        const unpaid = parseInt(row.unpaid_claims) || 0;
+        const total = paid + unpaid;
+        const unpaidRate = total ? Math.round((unpaid / total) * 100) : 0;
+        if (unpaidRate >= 30) {
+            alerts.push({
+                sev: unpaidRate >= 40 ? "r" : "y",
+                t: `${row.provider_name} has an unpaid claim rate of ${unpaidRate}%`,
+                a: "This is based on billing.payment_status and is a good signal for follow-up workload."
+            });
+        }
+    });
+
+    const payerVolumes = {};
+    volumeRows.forEach(row => {
+        payerVolumes[row.provider_name] = (payerVolumes[row.provider_name] || 0) + (parseInt(row.completed_visits) || 0);
+    });
+    Object.entries(payerVolumes)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .forEach(([payer, visits]) => {
+            alerts.push({
+                sev: "g",
+                t: `${payer} is among the highest-volume payers with ${visits} completed visits in the last 6 months`,
+                a: "High-volume payers matter more when you review contract performance or reimbursement slippage."
+            });
+        });
+
+    if (!alerts.length) {
+        el.innerHTML = `<div style="color:#aaa;font-size:13px;padding:10px 0">No cross-payer issues detected from the available schema fields.</div>`;
+        return;
+    }
+
+    el.innerHTML = alerts.slice(0, 6).map(a => `
+        <div class="ins-alert-row">
+            <div style="flex:1">
+                <div style="font-weight:700;color:#333;font-size:12px;margin-bottom:2px">${a.t}</div>
+                <div style="color:#888;font-size:11px">${a.a}</div>
+            </div>
+            <div style="text-align:right;min-width:110px;flex-shrink:0">
+                <span class="ins-tbadge ${a.sev === "r" ? "alert" : a.sev === "y" ? "watch" : "ok"}">${a.sev === "r" ? "ACTION" : a.sev === "y" ? "MONITOR" : "GOOD"}</span>
+            </div>
+        </div>
+    `).join("");
 }
 
 /* ══════════════════════════════════════

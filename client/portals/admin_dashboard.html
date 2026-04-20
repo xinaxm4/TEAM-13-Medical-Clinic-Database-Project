@@ -132,6 +132,12 @@
         .ins-tbadge.alert { background:#fce4e4; color:#c0392b; }
         .ins-tbadge.watch { background:#fff3cd; color:#7a5a00; }
         .ins-tbadge.ok    { background:#e4f7ee; color:#0d7a60; }
+        .ins-portfolio-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+        .ins-mini-kpi { background:white; border:1px solid #e8ecf4; border-radius:10px; padding:12px 14px; text-align:center; }
+        html[data-theme="dark"] .ins-mini-kpi { background:#1e2535; border-color:#2a3348; }
+        .ins-mini-kpi .v { font-size:20px; font-weight:800; color:#1a3a6d; line-height:1.1; }
+        html[data-theme="dark"] .ins-mini-kpi .v { color:#7ab4f5; }
+        .ins-mini-kpi .l { font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.4px; font-weight:600; margin-top:4px; }
 
         /* Insurance manage form */
         .ins-form-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
@@ -148,6 +154,18 @@
         html[data-theme="dark"] .edit-modal-box { background:#1e2535; }
         .edit-modal-title { font-size:18px; font-weight:700; color:#1a3a6d; margin:0 0 20px; }
         html[data-theme="dark"] .edit-modal-title { color:#7ab4f5; }
+
+        @media (max-width: 1100px) {
+            .ins-kpi-row, .ins-portfolio-grid, .ins-charts-3 { grid-template-columns:repeat(2,1fr); }
+        }
+        @media (max-width: 860px) {
+            .ins-charts-2, .ins-charts-3, .ins-portfolio-grid { grid-template-columns:1fr; }
+            .ins-kpi-row { grid-template-columns:repeat(2,1fr); }
+        }
+        @media (max-width: 560px) {
+            .ins-kpi-row { grid-template-columns:1fr; }
+            .ins-form-row, .form-grid, .report-stats { grid-template-columns:1fr; }
+        }
     </style>
     <script>if(localStorage.getItem("theme")==="dark")document.documentElement.setAttribute("data-theme","dark");</script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -531,6 +549,52 @@
                             </tr></thead>
                             <tbody id="payerDetailBody"><tr><td colspan="9" class="table-empty">Loading…</td></tr></tbody>
                         </table>
+                    </div>
+                </div>
+
+                <div class="section-block" style="margin-top:16px">
+                    <div class="section-block-header"><h3>Insurance Portfolio Overview</h3></div>
+                    <div style="padding:0 24px 24px">
+                        <div class="ins-portfolio-grid">
+                            <div class="ins-mini-kpi"><div class="v" id="ovActivePayers">—</div><div class="l">Active Accepted Payers</div></div>
+                            <div class="ins-mini-kpi"><div class="v" id="ovAvgReimb">—</div><div class="l">Avg Reimbursement</div></div>
+                            <div class="ins-mini-kpi"><div class="v" id="ovUnpaidRate">—</div><div class="l">Unpaid Claim Rate</div></div>
+                            <div class="ins-mini-kpi"><div class="v" id="ovCoveredPatients">—</div><div class="l">Covered Patients</div></div>
+                        </div>
+
+                        <div class="ins-charts-2">
+                            <div class="ins-chart-box">
+                                <h4>Reimbursement vs Threshold by Payer</h4>
+                                <p class="ins-chart-sub">Uses billing reimbursement % against accepted-plan thresholds when available</p>
+                                <canvas id="insOverviewBar" height="180"></canvas>
+                            </div>
+                            <div class="ins-chart-box">
+                                <h4>Paid vs Unpaid Claims by Payer</h4>
+                                <p class="ins-chart-sub">Based on billing payment status across all claims per payer</p>
+                                <canvas id="insOverviewStatus" height="180"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="ins-charts-2">
+                            <div class="ins-chart-box">
+                                <h4>Completed Visit Volume by Payer</h4>
+                                <p class="ins-chart-sub">Last 6 months from completed appointments joined through patient insurance</p>
+                                <canvas id="insOverviewVolume" height="180"></canvas>
+                            </div>
+                            <div class="ins-chart-box">
+                                <h4>Reimbursement by Appointment Type</h4>
+                                <p class="ins-chart-sub">Top appointment types only, using existing appointment_type values</p>
+                                <canvas id="insOverviewTypes" height="180"></canvas>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:8px">
+                            <h4 style="margin:0 0 2px;font-size:13px;font-weight:700;color:#1a3a6d">Portfolio Assessment</h4>
+                            <p class="ins-chart-sub">Flags derived only from existing billing, appointment, patient, insurance, and accepted-plan data</p>
+                            <div id="insPortfolioAlerts">
+                                <div style="color:#aaa;font-size:13px;padding:10px 0">Loading portfolio signals…</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -601,6 +601,124 @@ const getPayerDetail = (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
+   GET /api/admin/insurance/overview
+   Cross-payer analytics for the admin dashboard.
+   Uses existing schema only:
+     billing, patient, appointment, appointment_status,
+     insurance, clinic_accepted_insurance
+───────────────────────────────────────────── */
+const getInsuranceOverview = (req, res) => {
+  const summarySql = `
+    SELECT
+      (SELECT COUNT(DISTINCT cai.insurance_id)
+         FROM clinic_accepted_insurance cai
+        WHERE cai.is_active = TRUE)                                              AS active_payers,
+      (SELECT ROUND(AVG(CASE WHEN b.total_amount > 0
+                             THEN b.insurance_paid_amount / b.total_amount * 100 END), 1)
+         FROM billing b
+        WHERE b.insurance_id IS NOT NULL)                                         AS avg_reimbursement_pct,
+      (SELECT ROUND(
+                SUM(CASE WHEN b.payment_status = 'Paid' THEN 0 ELSE 1 END)
+                / NULLIF(COUNT(b.bill_id), 0) * 100, 1)
+         FROM billing b
+        WHERE b.insurance_id IS NOT NULL)                                         AS unpaid_claim_rate,
+      (SELECT COUNT(*)
+         FROM patient p
+        WHERE p.insurance_id IS NOT NULL)                                         AS covered_patients`;
+
+  const payerPerformanceSql = `
+    SELECT
+      ins.insurance_id,
+      ins.provider_name,
+      ROUND(AVG(CASE WHEN b.total_amount > 0
+                     THEN b.insurance_paid_amount / b.total_amount * 100 END), 1) AS actual_reimb_pct,
+      ROUND(AVG(CASE WHEN cai.is_active = TRUE
+                     THEN cai.reimbursement_threshold_pct END), 1)                 AS threshold_pct,
+      COUNT(b.bill_id)                                                             AS total_claims
+    FROM insurance ins
+    LEFT JOIN billing b ON b.insurance_id = ins.insurance_id
+    LEFT JOIN clinic_accepted_insurance cai ON cai.insurance_id = ins.insurance_id
+    GROUP BY ins.insurance_id, ins.provider_name
+    HAVING COUNT(b.bill_id) > 0 OR threshold_pct IS NOT NULL
+    ORDER BY ins.provider_name`;
+
+  const payerStatusSql = `
+    SELECT
+      ins.insurance_id,
+      ins.provider_name,
+      SUM(CASE WHEN b.payment_status = 'Paid' THEN 1 ELSE 0 END)   AS paid_claims,
+      SUM(CASE WHEN b.payment_status = 'Paid' THEN 0 ELSE 1 END)   AS unpaid_claims
+    FROM insurance ins
+    LEFT JOIN billing b ON b.insurance_id = ins.insurance_id
+    GROUP BY ins.insurance_id, ins.provider_name
+    HAVING COUNT(b.bill_id) > 0
+    ORDER BY ins.provider_name`;
+
+  const volumeSql = `
+    SELECT
+      DATE_FORMAT(a.appointment_date, '%Y-%m') AS month,
+      DATE_FORMAT(a.appointment_date, '%b %Y') AS month_label,
+      ins.insurance_id,
+      ins.provider_name,
+      COUNT(*) AS completed_visits
+    FROM appointment a
+    JOIN patient p ON p.patient_id = a.patient_id
+    JOIN insurance ins ON ins.insurance_id = p.insurance_id
+    JOIN appointment_status aps ON aps.status_id = a.status_id
+    WHERE aps.status_name = 'Completed'
+      AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+    GROUP BY DATE_FORMAT(a.appointment_date, '%Y-%m'),
+             DATE_FORMAT(a.appointment_date, '%b %Y'),
+             ins.insurance_id, ins.provider_name
+    ORDER BY month, ins.provider_name`;
+
+  const procedureSql = `
+    SELECT
+      t.appointment_type,
+      t.provider_name,
+      ROUND(t.avg_reimb_pct, 1) AS avg_reimb_pct
+    FROM (
+      SELECT
+        a.appointment_type,
+        ins.provider_name,
+        AVG(CASE WHEN b.total_amount > 0
+                 THEN b.insurance_paid_amount / b.total_amount * 100 END) AS avg_reimb_pct,
+        COUNT(*) AS claim_count
+      FROM billing b
+      JOIN appointment a ON a.appointment_id = b.appointment_id
+      JOIN insurance ins ON ins.insurance_id = b.insurance_id
+      WHERE a.appointment_type IS NOT NULL
+        AND a.appointment_type <> ''
+      GROUP BY a.appointment_type, ins.provider_name
+    ) t
+    JOIN (
+      SELECT a.appointment_type
+      FROM billing b
+      JOIN appointment a ON a.appointment_id = b.appointment_id
+      WHERE a.appointment_type IS NOT NULL
+        AND a.appointment_type <> ''
+      GROUP BY a.appointment_type
+      ORDER BY COUNT(*) DESC, a.appointment_type
+      LIMIT 4
+    ) top_types ON top_types.appointment_type = t.appointment_type
+    ORDER BY t.appointment_type, t.provider_name`;
+
+  let out = {}, left = 5, sent = false;
+  const done = () => { if (!sent && --left === 0) res.json(out); };
+  const bail = () => {
+    if (sent) return;
+    sent = true;
+    res.status(500).json({ message: "Something went wrong. Please try again." });
+  };
+
+  db.query(summarySql,          (e, r) => { if (e) return bail(); out.summary          = r[0] || {}; done(); });
+  db.query(payerPerformanceSql, (e, r) => { if (e) return bail(); out.payerPerformance = r || [];   done(); });
+  db.query(payerStatusSql,      (e, r) => { if (e) return bail(); out.payerStatus      = r || [];   done(); });
+  db.query(volumeSql,           (e, r) => { if (e) return bail(); out.volumeTrend      = r || [];   done(); });
+  db.query(procedureSql,        (e, r) => { if (e) return bail(); out.procedureMix     = r || [];   done(); });
+};
+
+/* ─────────────────────────────────────────────
    PUT /api/admin/physician/:id  — edit
 ───────────────────────────────────────────── */
 const editPhysician = (req, res) => {
@@ -771,7 +889,7 @@ module.exports = {
   loginAdmin, getAdminDashboard, getClinicReport,
   getAllPhysicians, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
-  getPayerScorecard, getPayerDetail, getAcceptedInsurance, addAcceptedInsurance,
+  getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
   deactivateInsurance, getPayerAlerts, markAlertRead,
   checkTerminationEligibility, terminateStaff
 };
