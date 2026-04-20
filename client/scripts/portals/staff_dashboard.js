@@ -36,13 +36,14 @@ function showSection(name) {
     const labels = { overview:"Dashboard", schedule:"Schedule & Booking", checkin:"Check In / Out", billing:"Billing & Payments", comms:"Communications", reports:"Appointment Reports", profile:"Staff Profile", settings:"Settings" };
     if (name === "reports") {
         showReportTab("daily", document.querySelector(".report-tab"));
+        const today = localDateStr(new Date());
         const di = document.getElementById("rpt_daily_date");
-        if (di && !di.value) di.value = localDateStr(new Date());
+        if (di) { di.value = today; }
         const mc_s = document.getElementById("rpt_mc_start");
         const mc_e = document.getElementById("rpt_mc_end");
-        const today = localDateStr(new Date());
         if (mc_s && !mc_s.value) mc_s.value = today;
         if (mc_e && !mc_e.value) mc_e.value = today;
+        runDailyReport();
     }
     document.getElementById("currentSection").textContent = labels[name] || name;
 }
