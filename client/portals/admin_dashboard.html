@@ -309,7 +309,22 @@
 
             <!-- Clinic Summary Table -->
             <div class="section-block">
-                <div class="section-block-header"><h3>Clinic Summary</h3></div>
+                <div class="section-block-header">
+                    <h3>Clinic Summary</h3>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <input type="text" id="clinicSearchInput" placeholder="Search clinic…" oninput="filterClinicSummary()"
+                            style="padding:6px 11px;border:1px solid #c5d2f0;border-radius:7px;font-size:12px;font-family:inherit;width:150px">
+                        <select id="clinicSortBy" onchange="filterClinicSummary()"
+                            style="padding:6px 11px;border:1px solid #c5d2f0;border-radius:7px;font-size:12px;font-family:inherit;background:#fff">
+                            <option value="">Sort by…</option>
+                            <option value="physicians_desc">Most Physicians</option>
+                            <option value="physicians_asc">Fewest Physicians</option>
+                            <option value="appts_desc">Most Appointments</option>
+                            <option value="appts_asc">Fewest Appointments</option>
+                            <option value="name_asc">Clinic Name A–Z</option>
+                        </select>
+                    </div>
+                </div>
                 <div style="overflow-x:auto">
                     <table class="data-table">
                         <thead><tr><th>Clinic</th><th>Location</th><th>Departments</th><th>Physicians</th><th>Appts This Month</th></tr></thead>
@@ -320,7 +335,25 @@
 
             <!-- Recent Appointments -->
             <div class="section-block">
-                <div class="section-block-header"><h3>Recent Appointments</h3></div>
+                <div class="section-block-header">
+                    <h3>Recent Appointments</h3>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <input type="text" id="apptSearchInput" placeholder="Search patient or doctor…" oninput="filterRecentAppts()"
+                            style="padding:6px 11px;border:1px solid #c5d2f0;border-radius:7px;font-size:12px;font-family:inherit;width:180px">
+                        <select id="apptStatusFilter" onchange="filterRecentAppts()"
+                            style="padding:6px 11px;border:1px solid #c5d2f0;border-radius:7px;font-size:12px;font-family:inherit;background:#fff">
+                            <option value="">All Statuses</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="No-Show">No-Show</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                        <select id="apptLocationFilter" onchange="filterRecentAppts()"
+                            style="padding:6px 11px;border:1px solid #c5d2f0;border-radius:7px;font-size:12px;font-family:inherit;background:#fff">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                </div>
                 <div style="overflow-x:auto">
                     <table class="data-table">
                         <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Physician</th><th>Location</th><th>Status</th></tr></thead>
@@ -498,6 +531,18 @@
                     <div class="stat-value" id="rptOutstanding" style="color:#e74c3c">—</div>
                     <div class="stat-sub">Unpaid patient balances</div>
                 </div>
+            </div>
+
+            <!-- Revenue chart -->
+            <div class="section-card" style="margin-bottom:20px">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
+                    <div>
+                        <div class="card-title">Revenue by Clinic Location</div>
+                        <div class="card-sub">Total billed vs collected vs still outstanding per location</div>
+                    </div>
+                    <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Each clinic has 3 bars: what was billed to patients and insurance, what has actually been collected, and what is still owed. Large outstanding bars mean the clinic is waiting on unpaid bills.</span></span>
+                </div>
+                <canvas id="rptRevenueChart" height="120"></canvas>
             </div>
 
             <div id="clinicReportCards"><p style="color:#aaa;padding:20px">Loading clinic reports…</p></div>
@@ -981,6 +1026,35 @@
         </div>
     </div>
 </div>
+
+<!-- ── Deactivate Insurance Modal ── -->
+<div class="edit-modal-overlay hidden" id="deactivateModal">
+    <div class="edit-modal-box" style="max-width:460px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+            <div class="edit-modal-title" style="color:#c0392b">Remove Insurance Plan</div>
+            <button onclick="closeDeactivateModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1">×</button>
+        </div>
+        <p id="deactivateModalDesc" style="font-size:14px;color:#555;margin:0 0 16px;line-height:1.5"></p>
+        <div style="background:#fff8f0;border:1px solid #f5c6a0;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#7a4000">
+            <strong>Important:</strong> If this plan scores below 70/100 the removal will be allowed. All patients on this plan will receive a 60-day notice automatically.
+        </div>
+        <div class="form-field" style="margin-bottom:18px">
+            <label style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#555;display:block;margin-bottom:6px">Reason for removal *</label>
+            <textarea id="deactivateReason" rows="3" placeholder="e.g. Low reimbursement rates, contract dispute…"
+                style="width:100%;padding:10px 12px;border:1px solid #c5d2f0;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+            <div id="deactivateError" style="color:#e05c5c;font-size:12px;margin-top:5px;display:none"></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button onclick="closeDeactivateModal()" style="padding:9px 20px;border:1px solid #c5d2f0;border-radius:8px;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:#555">Cancel</button>
+            <button onclick="confirmDeactivate()" style="padding:9px 20px;border:none;border-radius:8px;background:#e05c5c;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" id="deactivateConfirmBtn">Remove Plan</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toast Notification ── -->
+<div id="adminToast" style="position:fixed;bottom:28px;right:28px;z-index:9999;display:none;
+     padding:13px 20px;border-radius:10px;font-size:13px;font-weight:600;
+     box-shadow:0 4px 20px rgba(0,0,0,0.18);max-width:360px;line-height:1.4;font-family:inherit"></div>
 
 <script src="/client/scripts/dark-mode.js"></script>
 <script src="/client/scripts/portals/admin_dashboard.js"></script>
