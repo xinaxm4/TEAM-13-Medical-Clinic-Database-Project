@@ -96,6 +96,77 @@ function money(v) { return "$" + parseFloat(v || 0).toFixed(2).replace(/\B(?=(\d
 /* ══════════════════════════════════════
    OVERVIEW — load dashboard stats
 ══════════════════════════════════════ */
+/* ── Toast notification ── */
+function showToast(msg, type = "success") {
+    const t = document.getElementById("adminToast");
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = type === "success" ? "#0d7a60" : type === "warning" ? "#f5a623" : "#c0392b";
+    t.style.color = "#fff";
+    t.style.display = "block";
+    t.style.opacity = "1";
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => {
+        t.style.transition = "opacity 0.4s";
+        t.style.opacity = "0";
+        setTimeout(() => { t.style.display = "none"; t.style.transition = ""; }, 400);
+    }, 3500);
+}
+
+let _overviewClinics = [];
+let _overviewAppts   = [];
+
+function _renderClinicSummary(rows) {
+    document.getElementById("clinicSummaryBody").innerHTML = rows.length
+        ? rows.map(c => `<tr>
+            <td class="primary">${c.clinic_name}</td>
+            <td>${c.city}, ${c.state}</td>
+            <td>${c.departments}</td>
+            <td>${c.physicians}</td>
+            <td>${c.appointments_this_month}</td>
+        </tr>`).join("")
+        : `<tr><td colspan="5" class="table-empty">No clinics match your search</td></tr>`;
+}
+
+function _renderRecentAppts(rows) {
+    document.getElementById("recentApptBody").innerHTML = rows.length
+        ? rows.map(a => `<tr>
+            <td class="primary">${fmt(a.appointment_date)}</td>
+            <td>${timeFmt(a.appointment_time)}</td>
+            <td>${a.patient_name}</td>
+            <td>${a.physician_name}</td>
+            <td>${a.city}</td>
+            <td>${pill(a.status_name)}</td>
+        </tr>`).join("")
+        : `<tr><td colspan="6" class="table-empty">No appointments match your filters</td></tr>`;
+}
+
+function filterClinicSummary() {
+    const q    = (document.getElementById("clinicSearchInput")?.value || "").toLowerCase();
+    const sort = document.getElementById("clinicSortBy")?.value || "";
+    let rows = _overviewClinics.filter(c =>
+        !q || c.clinic_name.toLowerCase().includes(q) || (c.city||"").toLowerCase().includes(q)
+    );
+    if (sort === "physicians_desc") rows = rows.slice().sort((a,b) => b.physicians - a.physicians);
+    if (sort === "physicians_asc")  rows = rows.slice().sort((a,b) => a.physicians - b.physicians);
+    if (sort === "appts_desc")      rows = rows.slice().sort((a,b) => b.appointments_this_month - a.appointments_this_month);
+    if (sort === "appts_asc")       rows = rows.slice().sort((a,b) => a.appointments_this_month - b.appointments_this_month);
+    if (sort === "name_asc")        rows = rows.slice().sort((a,b) => a.clinic_name.localeCompare(b.clinic_name));
+    _renderClinicSummary(rows);
+}
+
+function filterRecentAppts() {
+    const q      = (document.getElementById("apptSearchInput")?.value    || "").toLowerCase();
+    const status = document.getElementById("apptStatusFilter")?.value    || "";
+    const loc    = document.getElementById("apptLocationFilter")?.value  || "";
+    const rows = _overviewAppts.filter(a =>
+        (!q      || a.patient_name.toLowerCase().includes(q) || a.physician_name.toLowerCase().includes(q)) &&
+        (!status || a.status_name === status) &&
+        (!loc    || a.city === loc)
+    );
+    _renderRecentAppts(rows);
+}
+
 async function loadOverview() {
     try {
         const res  = await fetch(`/api/admin/dashboard?user_id=${user.id}`);
@@ -103,6 +174,8 @@ async function loadOverview() {
         if (!res.ok) { document.getElementById("greetSub").textContent = data.message || "Could not load data."; return; }
 
         const { stats, clinics, recentAppts } = data;
+        _overviewClinics = clinics || [];
+        _overviewAppts   = recentAppts || [];
 
         document.getElementById("greetSub").textContent = `Managing ${clinics.length} clinic location(s) · Audit Trail Health`;
         document.getElementById("statPhysicians").textContent = stats?.total_physicians ?? "—";
@@ -110,28 +183,14 @@ async function loadOverview() {
         document.getElementById("statPatients").textContent   = stats?.total_patients   ?? "—";
         document.getElementById("statAppts").textContent      = stats?.upcoming_appointments ?? "—";
 
-        // Clinic summary table
-        document.getElementById("clinicSummaryBody").innerHTML = clinics.length
-            ? clinics.map(c => `<tr>
-                <td class="primary">${c.clinic_name}</td>
-                <td>${c.city}, ${c.state}</td>
-                <td>${c.departments}</td>
-                <td>${c.physicians}</td>
-                <td>${c.appointments_this_month}</td>
-            </tr>`).join("")
-            : `<tr><td colspan="5" class="table-empty">No clinics found</td></tr>`;
+        _renderClinicSummary(clinics);
+        _renderRecentAppts(recentAppts);
 
-        // Recent appointments
-        document.getElementById("recentApptBody").innerHTML = recentAppts.length
-            ? recentAppts.map(a => `<tr>
-                <td class="primary">${fmt(a.appointment_date)}</td>
-                <td>${timeFmt(a.appointment_time)}</td>
-                <td>${a.patient_name}</td>
-                <td>${a.physician_name}</td>
-                <td>${a.city}</td>
-                <td>${pill(a.status_name)}</td>
-            </tr>`).join("")
-            : `<tr><td colspan="6" class="table-empty">No appointments found</td></tr>`;
+        // Populate location filter for recent appts
+        const locs = [...new Set(recentAppts.map(a => a.city).filter(Boolean))].sort();
+        const sel = document.getElementById("apptLocationFilter");
+        if (sel) sel.innerHTML = `<option value="">All Locations</option>` +
+            locs.map(l => `<option value="${l}">${l}</option>`).join("");
 
     } catch(e) {
         document.getElementById("greetSub").textContent = "Could not connect to server.";
@@ -144,6 +203,8 @@ async function loadOverview() {
 let _departmentsLoaded = false;
 let _physicianCache    = {};   // id → row object, for edit modal pre-fill
 let _staffCache        = {};   // id → row object
+let _physicianRows     = [];   // full list for client-side filtering
+let _staffRows         = [];   // full list for client-side filtering
 
 async function loadDepartments() {
     if (_departmentsLoaded) return;
@@ -167,16 +228,23 @@ async function loadOfficesForSchedule() {
     } catch(e) { return []; }
 }
 
-async function loadPhysicians() {
-    loadDepartments();
-    try {
-        const r    = await fetch(`/api/admin/physicians?user_id=${user.id}`);
-        const rows = await r.json();
-        _physicianCache = {};
-        rows.forEach(p => { _physicianCache[p.physician_id] = p; });
-        document.getElementById("physicianListBody").innerHTML = rows.length
-            ? rows.map(p => `<tr>
-                <td class="primary">Dr. ${p.first_name} ${p.last_name}</td>
+function _renderPhysicianRows(rows) {
+    document.getElementById("physicianListBody").innerHTML = rows.length
+        ? rows.map(p => {
+            const score = p.performance_score || 0;
+            const scoreColor = score >= 80 ? "#22c97a" : score >= 60 ? "#f5a623" : "#e05c5c";
+            const scoreLabel = score >= 80 ? "High Performer" : score >= 60 ? "Solid" : "Needs Attention";
+            const scoreBadge = p.total_appts > 0
+                ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:6px;background:${scoreColor}22;border:1px solid ${scoreColor};color:${scoreColor};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">
+                      ${score}/100
+                      <span class="info-tip" style="line-height:1">
+                        <i class="tip-icon" style="background:${scoreColor}44;color:${scoreColor}">i</i>
+                        <span class="tip-text"><strong>${scoreLabel}</strong><br>Based on last 90 days:<br>• ${p.completed_appts} appointments completed<br>• ${p.no_show_appts} no-shows<br>• ${p.completion_rate}% show-up rate<br><br>Scores 80+ are protected from deletion.</span>
+                      </span>
+                   </span>`
+                : `<span style="margin-left:6px;font-size:10px;color:#aaa">No data yet</span>`;
+            return `<tr>
+                <td class="primary" style="white-space:nowrap">Dr. ${p.first_name} ${p.last_name}${scoreBadge}</td>
                 <td>${p.specialty || "—"}</td>
                 <td style="text-transform:capitalize">${p.physician_type || "—"}</td>
                 <td>${p.department_name || "—"}</td>
@@ -189,11 +257,40 @@ async function loadPhysicians() {
                             style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
                         <button onclick="confirmDeletePhysician(${p.physician_id},'Dr. ${p.first_name} ${p.last_name}')"
                             style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
-                        <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A doctor can only be removed if they have no upcoming patient visits on their calendar. If they do, those appointments need to be cancelled or moved to another doctor first.</span></span>
                     </div>
                 </td>
-            </tr>`).join("")
-            : `<tr><td colspan="8" class="table-empty">No physicians found</td></tr>`;
+            </tr>`;}).join("")
+        : `<tr><td colspan="8" class="table-empty">No physicians found</td></tr>`;
+}
+
+function filterPhysicians() {
+    const name   = (document.getElementById("phSearchInput")?.value  || "").toLowerCase();
+    const clinic = (document.getElementById("phClinicFilter")?.value || "");
+    const type   = (document.getElementById("phTypeFilter")?.value   || "");
+    const filtered = _physicianRows.filter(p =>
+        (!name   || `${p.first_name} ${p.last_name}`.toLowerCase().includes(name)) &&
+        (!clinic || p.clinic_name === clinic) &&
+        (!type   || p.physician_type === type)
+    );
+    _renderPhysicianRows(filtered);
+}
+
+async function loadPhysicians() {
+    loadDepartments();
+    try {
+        const r    = await fetch(`/api/admin/physicians?user_id=${user.id}`);
+        const rows = await r.json();
+        _physicianCache = {};
+        _physicianRows  = rows;
+        rows.forEach(p => { _physicianCache[p.physician_id] = p; });
+        // Populate clinic filter dropdown
+        const clinics = [...new Set(rows.map(p => p.clinic_name).filter(Boolean))].sort();
+        const sel = document.getElementById("phClinicFilter");
+        if (sel) {
+            sel.innerHTML = `<option value="">All Locations</option>` +
+                clinics.map(c => `<option value="${c}">${c}</option>`).join("");
+        }
+        _renderPhysicianRows(rows);
     } catch(e) {
         document.getElementById("physicianListBody").innerHTML = `<tr><td colspan="8" class="table-empty">Could not load data</td></tr>`;
     }
@@ -343,47 +440,87 @@ async function submitEditPhysician() {
 }
 
 async function confirmDeletePhysician(id, name) {
-    if (!confirm(`Delete ${name}?\n\nThis will also remove their login account and cannot be undone.`)) return;
+    if (!confirm(`Remove ${name}?\n\nThis cannot be undone. The system will block this if they have upcoming appointments or a high performance score.`)) return;
     try {
         const r = await fetch(`/api/admin/physician/${id}?user_id=${user.id}`, { method: "DELETE" });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message);
+        showToast(`${name} has been removed.`, "success");
         loadPhysicians();
     } catch(err) {
-        alert("Could not delete: " + (err.message || "Unknown error"));
+        showToast(err.message || "Could not remove physician.", "error");
     }
 }
 
 /* ══════════════════════════════════════
    STAFF
 ══════════════════════════════════════ */
+function _staffTenureScore(hireDateStr) {
+    if (!hireDateStr) return null;
+    const months = Math.floor((Date.now() - new Date(hireDateStr)) / (1000*60*60*24*30.5));
+    if (months < 6)   return { score: 40, label: "New",         color: "#aaaaaa" };
+    if (months < 12)  return { score: 60, label: "Developing",  color: "#f5a623" };
+    if (months < 24)  return { score: 75, label: "Experienced", color: "#4a90d9" };
+    return                   { score: 90, label: "Senior",      color: "#22c97a" };
+}
+
+function _renderStaffRows(rows) {
+    document.getElementById("staffListBody").innerHTML = rows.length
+        ? rows.map(s => {
+            const t = _staffTenureScore(s.hire_date);
+            const badge = t ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:6px;background:${t.color}22;border:1px solid ${t.color};color:${t.color};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">
+                ${t.score}/100
+                <span class="info-tip" style="line-height:1"><i class="tip-icon" style="background:${t.color}44;color:${t.color}">i</i>
+                <span class="tip-text"><strong>${t.label}</strong><br>This score is based on how long this staff member has been with the clinic. More detailed activity scoring requires tracking which staff handle each patient interaction.<br><br>Scores 75+ are protected from deletion when the clinic is at minimum staffing.</span></span>
+            </span>` : "";
+            return `<tr>
+            <td class="primary" style="white-space:nowrap">${s.first_name} ${s.last_name}${badge}</td>
+            <td>${s.role || "—"}</td>
+            <td>${s.department_name || "—"}</td>
+            <td>${s.clinic_name || "—"}</td>
+            <td>${s.email || "—"}</td>
+            <td>${s.shift_start ? timeFmt(s.shift_start) + " – " + timeFmt(s.shift_end) : "—"}</td>
+            <td>${fmt(s.hire_date)}</td>
+            <td>
+                <div style="display:flex;gap:6px">
+                    <button onclick="openEditStaffModal(${s.staff_id})"
+                        style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
+                    <button onclick="confirmDeleteStaff(${s.staff_id},'${s.first_name} ${s.last_name}')"
+                        style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
+                </div>
+            </td>
+        </tr>`).join("")
+        : `<tr><td colspan="8" class="table-empty">No staff members found</td></tr>`;
+}
+
+function filterStaff() {
+    const name   = (document.getElementById("stSearchInput")?.value  || "").toLowerCase();
+    const clinic = (document.getElementById("stClinicFilter")?.value || "");
+    const role   = (document.getElementById("stRoleFilter")?.value   || "");
+    const filtered = _staffRows.filter(s =>
+        (!name   || `${s.first_name} ${s.last_name}`.toLowerCase().includes(name)) &&
+        (!clinic || s.clinic_name === clinic) &&
+        (!role   || s.role === role)
+    );
+    _renderStaffRows(filtered);
+}
+
 async function loadStaff() {
     loadDepartments();
     try {
         const r    = await fetch(`/api/admin/staff-members?user_id=${user.id}`);
         const rows = await r.json();
         _staffCache = {};
+        _staffRows  = rows;
         rows.forEach(s => { _staffCache[s.staff_id] = s; });
-        document.getElementById("staffListBody").innerHTML = rows.length
-            ? rows.map(s => `<tr>
-                <td class="primary">${s.first_name} ${s.last_name}</td>
-                <td>${s.role || "—"}</td>
-                <td>${s.department_name || "—"}</td>
-                <td>${s.clinic_name || "—"}</td>
-                <td>${s.email || "—"}</td>
-                <td>${s.shift_start ? timeFmt(s.shift_start) + " – " + timeFmt(s.shift_end) : "—"}</td>
-                <td>${fmt(s.hire_date)}</td>
-                <td>
-                    <div style="display:flex;gap:6px">
-                        <button onclick="openEditStaffModal(${s.staff_id})"
-                            style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
-                        <button onclick="confirmDeleteStaff(${s.staff_id},'${s.first_name} ${s.last_name}')"
-                            style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
-                        <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A staff member can only be removed if the clinic still has enough people to serve its patients. The clinic needs at least 1 staff member for every 50 patients. If removing this person would leave the clinic short-staffed, the action will be blocked.</span></span>
-                    </div>
-                </td>
-            </tr>`).join("")
-            : `<tr><td colspan="8" class="table-empty">No staff members found</td></tr>`;
+        // Populate clinic filter dropdown
+        const clinics = [...new Set(rows.map(s => s.clinic_name).filter(Boolean))].sort();
+        const sel = document.getElementById("stClinicFilter");
+        if (sel) {
+            sel.innerHTML = `<option value="">All Locations</option>` +
+                clinics.map(c => `<option value="${c}">${c}</option>`).join("");
+        }
+        _renderStaffRows(rows);
     } catch(e) {
         document.getElementById("staffListBody").innerHTML = `<tr><td colspan="8" class="table-empty">Could not load data</td></tr>`;
     }
@@ -503,14 +640,15 @@ async function submitEditStaff() {
 }
 
 async function confirmDeleteStaff(id, name) {
-    if (!confirm(`Delete ${name}?\n\nThis will also remove their login account and cannot be undone.`)) return;
+    if (!confirm(`Remove ${name}?\n\nThis cannot be undone. The system will block this if removing them would leave the clinic understaffed.`)) return;
     try {
         const r = await fetch(`/api/admin/staff/${id}?user_id=${user.id}`, { method: "DELETE" });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message);
+        showToast(`${name} has been removed.`, "success");
         loadStaff();
     } catch(err) {
-        alert("Could not delete: " + (err.message || "Unknown error"));
+        showToast(err.message || "Could not remove staff member.", "error");
     }
 }
 
@@ -531,6 +669,25 @@ async function loadClinicReport() {
         const totalOutstanding = clinics.reduce((s,c) => s + parseFloat(c.outstanding_balance || 0), 0);
         document.getElementById("rptTotalBilled").textContent   = money(totalBilled);
         document.getElementById("rptOutstanding").textContent   = money(totalOutstanding);
+
+        // Revenue chart
+        if (window._rptRevenueChart) { window._rptRevenueChart.destroy(); }
+        const rc = document.getElementById("rptRevenueChart");
+        if (rc) {
+            window._rptRevenueChart = new Chart(rc, {
+                type:"bar",
+                data:{ labels: clinics.map(c => c.clinic_name.replace("Audit Trail Health ","").replace("Clinic","")),
+                    datasets:[
+                        { label:"Total Billed",   data:clinics.map(c=>parseFloat(c.total_billed)||0),        backgroundColor:"#4a90d9", borderRadius:3 },
+                        { label:"Collected",       data:clinics.map(c=>parseFloat(c.total_collected)||0),    backgroundColor:"#0d7a60", borderRadius:3 },
+                        { label:"Outstanding",     data:clinics.map(c=>parseFloat(c.outstanding_balance)||0),backgroundColor:"#e05c5c", borderRadius:3 }
+                    ]},
+                options:{ responsive:true,
+                    plugins:{ legend:{ position:"bottom", labels:{ font:{ size:11 } } } },
+                    scales:{ x:{ ticks:{ font:{ size:10 } } }, y:{ beginAtZero:true, ticks:{ callback: v => "$"+v.toLocaleString() } } }
+                }
+            });
+        }
 
         // Render per-clinic cards
         document.getElementById("clinicReportCards").innerHTML = clinics.map(c => {
@@ -729,9 +886,10 @@ function _renderPayerPills(payers) {
     if (!payers.length) { row.innerHTML = '<span style="color:#aaa;font-size:13px">No payer data.</span>'; return; }
     row.innerHTML = payers.map((p, i) => {
         const s = _computeScore(p);
-        const icon = s.status === "strong" ? "🟢" : s.status === "monitor" ? "🟡" : "🔴";
+        const dotColor = s.status === "strong" ? "#22c97a" : s.status === "monitor" ? "#f5a623" : "#e05c5c";
+        const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};margin-right:6px;vertical-align:middle"></span>`;
         return `<button class="ins-payer-pill${i === 0 ? " active" : ""}"
-            onclick="selectPayer(${p.insurance_id}, this)">${icon} ${p.provider_name}</button>`;
+            onclick="selectPayer(${p.insurance_id}, this)">${dot}${p.provider_name}</button>`;
     }).join("");
 }
 
@@ -1258,6 +1416,8 @@ async function loadInsurancePlans() {
     } catch(e) {}
 }
 
+let _acceptedPlansRows = [];
+
 async function loadAcceptedInsurance() {
     loadInsuranceClinics();
     loadInsurancePlans();
@@ -1267,13 +1427,14 @@ async function loadAcceptedInsurance() {
         const r    = await fetch(`/api/admin/insurance/accepted?user_id=${user.id}`);
         const rows = await r.json();
         if (!r.ok) throw new Error(rows.message);
+        _acceptedPlansRows = rows;
 
         tbody.innerHTML = rows.length ? rows.map(row => {
             const dot = row.is_active
                 ? `<span class="dot active"></span>Active`
                 : `<span class="dot inactive"></span>Inactive`;
             const deactivateBtn = row.is_active
-                ? `<div style="display:inline-flex;align-items:center;gap:4px"><button onclick="deactivateInsuranceRow(${row.id})" style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Deactivate</button><span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">This removes the insurance plan from the clinic. It can only be removed if the plan is underperforming (score below 70 out of 100). If the plan is working well for patients, the system will block the removal to protect their coverage. All affected patients will automatically receive a 60-day heads-up notice.</span></span></div>`
+                ? `<button onclick="deactivateInsuranceRow(${row.id})" style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Deactivate</button>`
                 : `<span style="font-size:11px;color:#aaa">Removed ${fmt(row.removed_date)}</span>`;
             return `<tr>
                 <td>${dot}</td>
@@ -1332,20 +1493,54 @@ async function submitAddInsurance() {
     }
 }
 
-async function deactivateInsuranceRow(id) {
-    const reason = prompt("Enter a reason for removing this insurance plan from the clinic:");
-    if (!reason || !reason.trim()) return;
+let _deactivatingId = null;
+
+function deactivateInsuranceRow(id) {
+    _deactivatingId = id;
+    // Find row from accepted plans cache
+    const row = (_acceptedPlansRows || []).find(r => r.id === id);
+    const desc = row
+        ? `You are about to remove <strong>${row.provider_name}</strong> from <strong>${row.clinic_name}</strong>.`
+        : `You are about to remove plan #${id} from this clinic.`;
+    const descEl = document.getElementById("deactivateModalDesc");
+    if (descEl) descEl.innerHTML = desc;
+    const reasonEl = document.getElementById("deactivateReason");
+    if (reasonEl) reasonEl.value = "";
+    const errEl = document.getElementById("deactivateError");
+    if (errEl) { errEl.textContent = ""; errEl.style.display = "none"; }
+    document.getElementById("deactivateModal")?.classList.remove("hidden");
+}
+
+function closeDeactivateModal() {
+    _deactivatingId = null;
+    document.getElementById("deactivateModal")?.classList.add("hidden");
+}
+
+async function confirmDeactivate() {
+    const reason = (document.getElementById("deactivateReason")?.value || "").trim();
+    const errEl  = document.getElementById("deactivateError");
+    if (!reason) {
+        if (errEl) { errEl.textContent = "Please enter a reason before removing."; errEl.style.display = "block"; }
+        return;
+    }
+    const btn = document.getElementById("deactivateConfirmBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Removing…"; }
     try {
-        const r = await fetch(`/api/admin/insurance/${id}/deactivate`, {
+        const r = await fetch(`/api/admin/insurance/${_deactivatingId}/deactivate`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ removal_reason: reason, user_id: user.id })
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message);
+        closeDeactivateModal();
+        showToast("Insurance plan removed and patients notified.", "success");
         loadAcceptedInsurance();
     } catch(e) {
-        alert("Could not deactivate: " + (e.message || "Unknown error"));
+        if (errEl) { errEl.textContent = e.message || "Could not remove plan."; errEl.style.display = "block"; }
+        showToast(e.message || "Could not remove plan.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Remove Plan"; }
     }
 }
 
@@ -1501,21 +1696,42 @@ async function renderAnaStaffing() {
                           scales:{ x:{ticks:{font:{size:10}}}, y:{beginAtZero:true,ticks:{stepSize:1}} } }
             });
         }
-        // Chart: Appt status this month from report rows
-        const totals = { Completed:0, Scheduled:0, Cancelled:0, "No-Show":0 };
-        report.forEach(row => {
-            if (row.completed  != null) totals.Completed  += parseInt(row.completed)  || 0;
-            if (row.scheduled  != null) totals.Scheduled  += parseInt(row.scheduled)  || 0;
-            if (row.cancelled  != null) totals.Cancelled  += parseInt(row.cancelled)  || 0;
-            if (row.no_shows   != null) totals["No-Show"] += parseInt(row.no_shows)   || 0;
+        // Chart: Patients per staff member by clinic location
+        // Builds a ratio per clinic from the clinic report data + staff list
+        const clinicReport = Array.isArray(report) ? report : (report.clinics || []);
+        const staffByClinic = {};
+        staffList.forEach(s => {
+            const loc = s.clinic_name || "Unknown";
+            staffByClinic[loc] = (staffByClinic[loc] || 0) + 1;
         });
-        _dAna("anaApptChart");
-        const ac = document.getElementById("anaApptChart"); if (ac) {
-            _anaCharts.anaApptChart = new Chart(ac, {
-                type:"doughnut",
-                data:{ labels:Object.keys(totals), datasets:[{ data:Object.values(totals),
-                    backgroundColor:["#0d7a60","#4a90d9","#e05c5c","#f0a43b"], borderWidth:0 }]},
-                options:{ responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}} }
+        const patientsByClinic = {};
+        clinicReport.forEach(row => {
+            const loc = row.clinic_name || "Unknown";
+            // Use appointment-based unique patient count as proxy
+            patientsByClinic[loc] = parseInt(row.total_appointments) || 0;
+        });
+        const ratioLocs = [...new Set([...Object.keys(staffByClinic), ...Object.keys(patientsByClinic)])].sort();
+        const ratioData = ratioLocs.map(loc => {
+            const s = staffByClinic[loc] || 1;
+            const p = patientsByClinic[loc] || 0;
+            return Math.round(p / s * 10) / 10;
+        });
+        _dAna("anaStaffRatioChart");
+        const arc = document.getElementById("anaStaffRatioChart"); if (arc) {
+            _anaCharts.anaStaffRatioChart = new Chart(arc, {
+                type:"bar",
+                data:{ labels:ratioLocs, datasets:[{
+                    label:"Visits per Staff Member",
+                    data:ratioData,
+                    backgroundColor: ratioData.map(v => v > 50 ? "#e05c5c" : "#4a90d9"),
+                    borderRadius:4
+                }]},
+                options:{ responsive:true,
+                    plugins:{ legend:{ display:false },
+                        annotation:{ annotations:[{ type:"line", yMin:50, yMax:50, borderColor:"#e05c5c", borderWidth:2, borderDash:[5,5], label:{ content:"Max recommended (50)", enabled:true } }] }
+                    },
+                    scales:{ x:{ticks:{font:{size:10}}}, y:{beginAtZero:true, title:{display:true,text:"Visits / Staff"}} }
+                }
             });
         }
     } catch(e) { console.error("analytics staffing:", e); }
@@ -1524,7 +1740,8 @@ async function renderAnaStaffing() {
 async function renderAnaReviews() {
     try {
         const r = await fetch(`/api/admin/clinic-report?user_id=${user.id}`);
-        const report = r.ok ? await r.json() : [];
+        const raw = r.ok ? await r.json() : {};
+        const report = raw.clinics || (Array.isArray(raw) ? raw : []);
 
         let totalCompleted=0, totalNoShow=0, totalAppts=0, totalBilled=0, totalPaid=0;
         report.forEach(row => {
