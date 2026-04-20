@@ -166,6 +166,61 @@
             .ins-kpi-row { grid-template-columns:1fr; }
             .ins-form-row, .form-grid, .report-stats { grid-template-columns:1fr; }
         }
+
+        /* ── Info tooltip (ⓘ icon) ── */
+        .info-tip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: default;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .info-tip .tip-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #c0cfe8;
+            color: #2c3e6b;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 16px;
+            text-align: center;
+            font-style: normal;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .info-tip:hover .tip-icon { background: #4a90d9; color: #fff; }
+        .info-tip .tip-text {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 240px;
+            background: #1e2a45;
+            color: #e8edf8;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.5;
+            padding: 10px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+            z-index: 9999;
+            pointer-events: none;
+            white-space: normal;
+            font-family: inherit;
+        }
+        .info-tip .tip-text::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1e2a45;
+        }
+        .info-tip:hover .tip-text { display: block; }
     </style>
     <script>if(localStorage.getItem("theme")==="dark")document.documentElement.setAttribute("data-theme","dark");</script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -186,6 +241,7 @@
             <button class="nav-item"         onclick="showSection('staff')"><i class="fa-solid fa-id-badge"></i>Staff Members</button>
             <button class="nav-item"         onclick="showSection('reports')"><i class="fa-solid fa-chart-line"></i>Financial Reports</button>
             <button class="nav-item"         onclick="showSection('insurance')"><i class="fa-solid fa-chart-pie"></i>Analytics</button>
+            <button class="nav-item"         onclick="showSection('analytics')"><i class="fa-solid fa-chart-bar"></i>Analytics</button>
             <button class="nav-item"         onclick="showSection('settings')"><i class="fa-solid fa-sliders"></i>Clinic Settings</button>
         </nav>
         <div class="sidebar-user">
@@ -659,6 +715,98 @@
             </div><!-- /manage -->
 
         </div><!-- /insurance -->
+
+        <!-- ══════════════ ANALYTICS ══════════════ -->
+        <div class="page-section hidden" id="sec-analytics">
+            <div class="section-header">
+                <h2 class="section-title">Analytics Dashboard</h2>
+                <p class="section-subtitle">Insurance performance, staffing levels, and review decisions</p>
+            </div>
+
+            <!-- Tab nav -->
+            <div class="ins-tabs">
+                <button class="ins-tab active" onclick="switchAnalyticsTab('insurance',this)">Insurance Performance</button>
+                <button class="ins-tab" onclick="switchAnalyticsTab('staffing',this)">Staffing Levels</button>
+                <button class="ins-tab" onclick="switchAnalyticsTab('reviews',this)">Review Decisions</button>
+            </div>
+
+            <!-- ── Tab: Insurance Performance ── -->
+            <div class="ins-tab-panel active" id="ana-panel-insurance">
+                <div class="kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+                    <div class="kpi-card"><div class="kpi-label">Active Payers</div><div class="kpi-value" id="anaActivePayers">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Avg Reimbursement</div><div class="kpi-value" id="anaAvgReimb">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Unpaid Claim Rate</div><div class="kpi-value" id="anaUnpaidRate">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Covered Patients</div><div class="kpi-value" id="anaCoveredPatients">—</div></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                    <div class="section-card">
+                        <div class="card-title">Reimbursement vs Threshold by Payer</div>
+                        <div class="card-sub">Blue bar below gray = paying under contracted minimum</div>
+                        <canvas id="anaReimbChart" height="200"></canvas>
+                    </div>
+                    <div class="section-card">
+                        <div class="card-title">Claim Status by Payer</div>
+                        <div class="card-sub">Large unpaid portion = higher administrative burden</div>
+                        <canvas id="anaStatusChart" height="200"></canvas>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                    <div class="section-card">
+                        <div class="card-title">Visit Volume by Payer — Last 6 Months</div>
+                        <div class="card-sub">High volume + low reimbursement = financial risk</div>
+                        <canvas id="anaVolumeChart" height="200"></canvas>
+                    </div>
+                    <div class="section-card">
+                        <div class="card-title">Reimbursement % by Appointment Type</div>
+                        <div class="card-sub">Shows which procedure types each payer underpays</div>
+                        <canvas id="anaTypesChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Tab: Staffing Levels ── -->
+            <div class="ins-tab-panel" id="ana-panel-staffing">
+                <div class="kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+                    <div class="kpi-card"><div class="kpi-label">Total Physicians</div><div class="kpi-value" id="anaPhysCount">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Total Staff</div><div class="kpi-value" id="anaStaffCount">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Active Patients</div><div class="kpi-value" id="anaPatientCount">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Avg Patients/Physician</div><div class="kpi-value" id="anaRatioVal">—</div></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="section-card">
+                        <div class="card-title">Physicians by Clinic Location</div>
+                        <div class="card-sub">Primary vs specialist breakdown per city</div>
+                        <canvas id="anaPhysChart" height="220"></canvas>
+                    </div>
+                    <div class="section-card">
+                        <div class="card-title">Appointments This Month by Status</div>
+                        <div class="card-sub">Completed, no-show, cancelled, scheduled</div>
+                        <canvas id="anaApptChart" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Tab: Review Decisions ── -->
+            <div class="ins-tab-panel" id="ana-panel-reviews">
+                <div class="kpi-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+                    <div class="kpi-card"><div class="kpi-label">Completed Appointments (90d)</div><div class="kpi-value" id="anaCompleted">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">No-Show Rate</div><div class="kpi-value" id="anaNoShow">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Outstanding Billing</div><div class="kpi-value" id="anaOutstanding">—</div></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="section-card">
+                        <div class="card-title">Appointment Outcomes — Last 90 Days</div>
+                        <div class="card-sub">By status across all clinics</div>
+                        <canvas id="anaOutcomeChart" height="230"></canvas>
+                    </div>
+                    <div class="section-card">
+                        <div class="card-title">Billing Status Breakdown</div>
+                        <div class="card-sub">Paid vs unpaid vs overdue</div>
+                        <canvas id="anaBillingChart" height="230"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /analytics -->
 
         <!-- ══════════════ SETTINGS ══════════════ -->
         <div class="page-section hidden" id="sec-settings">

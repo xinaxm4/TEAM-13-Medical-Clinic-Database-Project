@@ -421,7 +421,7 @@ const getAcceptedInsurance = (req, res) => {
     SELECT cai.id, cai.clinic_id, c.clinic_name,
            ins.insurance_id, ins.provider_name, ins.coverage_percentage,
            cai.reimbursement_threshold_pct, cai.min_participation_rate,
-           cai.is_active, cai.effective_date, cai.removal_reason
+           cai.is_active, cai.effective_date, cai.removed_date, cai.removal_reason
     FROM clinic_accepted_insurance cai
     JOIN clinic c      ON cai.clinic_id    = c.clinic_id
     JOIN insurance ins ON cai.insurance_id = ins.insurance_id
@@ -488,7 +488,7 @@ const deactivateInsurance = (req, res) => {
      WHERE id = ?`,
     [removal_reason.trim(), user_id || null, id],
     (err, result) => {
-      if (err) return res.status(500).json({ message: "Something went wrong. Please try again." });
+      if (err) return res.status(500).json({ message: err.sqlMessage || err.message });
       if (result.affectedRows === 0) return res.status(404).json({ message: "Record not found." });
       res.json({ message: "Insurance plan deactivated." });
     }
@@ -750,7 +750,7 @@ const deletePhysician = (req, res) => {
     if (e || !rows.length) return res.status(404).json({ message: "Physician not found." });
     const email = rows[0].email;
     db.query("DELETE FROM physician WHERE physician_id = ?", [id], (err) => {
-      if (err) return res.status(500).json({ message: "Could not delete physician: " + err.message });
+      if (err) return res.status(500).json({ message: err.sqlMessage || err.message });
       if (email) db.query("DELETE FROM users WHERE email = ?", [email], () => {});
       res.json({ message: "Physician deleted." });
     });
@@ -788,7 +788,7 @@ const deleteStaff = (req, res) => {
     if (e || !rows.length) return res.status(404).json({ message: "Staff not found." });
     const email = rows[0].email;
     db.query("DELETE FROM staff WHERE staff_id = ?", [id], (err) => {
-      if (err) return res.status(500).json({ message: "Could not delete staff: " + err.message });
+      if (err) return res.status(500).json({ message: err.sqlMessage || err.message });
       if (email) db.query("DELETE FROM users WHERE email = ?", [email], () => {});
       res.json({ message: "Staff member deleted." });
     });

@@ -27,7 +27,8 @@ document.getElementById("logoutBtn").addEventListener("click", logoutUser);
 /* ── Section nav ── */
 const sectionLabels = {
     overview:"System Overview", physicians:"Physicians", staff:"Staff Members",
-    reports:"Financial Reports", insurance:"Analytics", settings:"Clinic Settings"
+    reports:"Financial Reports", insurance:"Analytics", analytics:"Analytics Dashboard",
+    settings:"Clinic Settings"
 };
 
 function showSection(name) {
@@ -44,6 +45,7 @@ function showSection(name) {
     if (name === "staff")      loadStaff();
     if (name === "reports")    { loadClinicReport(); initAdminApptReport(); }
     if (name === "insurance")  loadInsurance();
+    if (name === "analytics")  loadAnalytics();
 }
 
 /* ── Theme ── */
@@ -187,6 +189,7 @@ async function loadPhysicians() {
                             style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
                         <button onclick="confirmDeletePhysician(${p.physician_id},'Dr. ${p.first_name} ${p.last_name}')"
                             style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
+                        <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A doctor can only be removed if they have no upcoming patient visits on their calendar. If they do, those appointments need to be cancelled or moved to another doctor first.</span></span>
                     </div>
                 </td>
             </tr>`).join("")
@@ -376,6 +379,7 @@ async function loadStaff() {
                             style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
                         <button onclick="confirmDeleteStaff(${s.staff_id},'${s.first_name} ${s.last_name}')"
                             style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
+                        <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A staff member can only be removed if the clinic still has enough people to serve its patients. The clinic needs at least 1 staff member for every 50 patients. If removing this person would leave the clinic short-staffed, the action will be blocked.</span></span>
                     </div>
                 </td>
             </tr>`).join("")
@@ -711,6 +715,7 @@ async function loadInsurance() {
         _renderAlertBanner(alerts);
         _renderAllPayersTable(_allPayers);
         _renderInsuranceOverview(_insuranceOverview);
+        loadAcceptedInsurance();   // pre-load manage tab so it's ready
         if (_allPayers.length) selectPayer(_allPayers[0].insurance_id);
     } catch(e) {
         document.getElementById("insPayerPills").innerHTML =
@@ -1268,7 +1273,7 @@ async function loadAcceptedInsurance() {
                 ? `<span class="dot active"></span>Active`
                 : `<span class="dot inactive"></span>Inactive`;
             const deactivateBtn = row.is_active
-                ? `<button onclick="deactivateInsuranceRow(${row.id})" style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Deactivate</button>`
+                ? `<div style="display:inline-flex;align-items:center;gap:4px"><button onclick="deactivateInsuranceRow(${row.id})" style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Deactivate</button><span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">This removes the insurance plan from the clinic. It can only be removed if the plan is underperforming (score below 70 out of 100). If the plan is working well for patients, the system will block the removal to protect their coverage. All affected patients will automatically receive a 60-day heads-up notice.</span></span></div>`
                 : `<span style="font-size:11px;color:#aaa">Removed ${fmt(row.removed_date)}</span>`;
             return `<tr>
                 <td>${dot}</td>
@@ -1342,6 +1347,229 @@ async function deactivateInsuranceRow(id) {
     } catch(e) {
         alert("Could not deactivate: " + (e.message || "Unknown error"));
     }
+}
+
+/* ══════════════════════════════════════
+   ANALYTICS SECTION
+══════════════════════════════════════ */
+const _anaCharts = {};
+function _dAna(k) { if (_anaCharts[k]) { _anaCharts[k].destroy(); delete _anaCharts[k]; } }
+
+function switchAnalyticsTab(tab, btn) {
+    document.querySelectorAll("#sec-analytics .ins-tab").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#sec-analytics .ins-tab-panel").forEach(p => p.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    const panel = document.getElementById("ana-panel-" + tab);
+    if (panel) panel.classList.add("active");
+    if (tab === "insurance") renderAnaInsurance();
+    if (tab === "staffing")  renderAnaStaffing();
+    if (tab === "reviews")   renderAnaReviews();
+}
+
+async function loadAnalytics() {
+    await renderAnaInsurance();
+}
+
+async function renderAnaInsurance() {
+    try {
+        const r = await fetch(`/api/admin/insurance/overview?user_id=${user.id}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const s = d.summary || {};
+        const setV = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setV("anaActivePayers",    s.active_payers ?? "—");
+        setV("anaAvgReimb",        s.avg_reimbursement_pct != null ? s.avg_reimbursement_pct + "%" : "—");
+        setV("anaUnpaidRate",      s.unpaid_claim_rate != null ? s.unpaid_claim_rate + "%" : "—");
+        setV("anaCoveredPatients", s.covered_patients ?? "—");
+
+        const pal = ["#4a90d9","#0d7a60","#f0a43b","#8f6de0","#dd6b66","#4aa6a1"];
+        // Chart 1: Reimbursement vs Threshold
+        const perf = d.payerPerformance || [];
+        _dAna("anaReimbChart");
+        const rc = document.getElementById("anaReimbChart"); if (rc) {
+            _anaCharts.anaReimbChart = new Chart(rc, {
+                type: "bar",
+                data: { labels: perf.map(p => p.provider_name),
+                        datasets: [
+                            { label: "Actual %", data: perf.map(p => parseFloat(p.actual_reimb_pct)||0),
+                              backgroundColor: perf.map((p,i) => {
+                                  const t = parseFloat(p.threshold_pct)||0;
+                                  return t > 0 && (parseFloat(p.actual_reimb_pct)||0) < t ? "#e05c5c" : "#4a90d9";
+                              }), borderRadius: 4 },
+                            { label: "Threshold %", data: perf.map(p => parseFloat(p.threshold_pct)||0),
+                              backgroundColor: "#d7ddea", borderRadius: 4 }
+                        ]},
+                options: { responsive: true,
+                           plugins: { legend: { position:"bottom", labels:{ font:{size:11} } } },
+                           scales: { y: { max:100, ticks:{callback:v=>v+"%"} } } }
+            });
+        }
+        // Chart 2: Claim status
+        const st = d.payerStatus || [];
+        _dAna("anaStatusChart");
+        const sc = document.getElementById("anaStatusChart"); if (sc) {
+            _anaCharts.anaStatusChart = new Chart(sc, {
+                type: "bar",
+                data: { labels: st.map(p => p.provider_name),
+                        datasets: [
+                            { label:"Paid",   data: st.map(p => parseInt(p.paid_claims)||0),   backgroundColor:"rgba(13,122,96,0.8)", stack:"s", borderRadius:4 },
+                            { label:"Unpaid", data: st.map(p => parseInt(p.unpaid_claims)||0), backgroundColor:"rgba(224,92,92,0.7)", stack:"s", borderRadius:4 }
+                        ]},
+                options: { responsive: true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}},
+                           scales: { x:{stacked:true}, y:{stacked:true, beginAtZero:true} } }
+            });
+        }
+        // Chart 3: Volume trend
+        const vt = d.volumeTrend || [];
+        const months = [...new Set(vt.map(r=>r.month))].sort();
+        const labels3 = months.map(m => (vt.find(r=>r.month===m)||{}).month_label || m);
+        const payers3 = [...new Set(vt.map(r=>r.provider_name))];
+        _dAna("anaVolumeChart");
+        const vc = document.getElementById("anaVolumeChart"); if (vc) {
+            _anaCharts.anaVolumeChart = new Chart(vc, {
+                type: "line",
+                data: { labels: labels3,
+                        datasets: payers3.map((p,i) => ({
+                            label: p, borderColor: pal[i%pal.length],
+                            backgroundColor: "transparent", borderWidth:2, tension:0.3, pointRadius:3,
+                            data: months.map(m => { const row = vt.find(r=>r.month===m&&r.provider_name===p); return row ? parseInt(row.completed_visits)||0 : 0; })
+                        }))},
+                options: { responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}},
+                           scales:{ x:{ticks:{font:{size:10}}}, y:{beginAtZero:true} } }
+            });
+        }
+        // Chart 4: By appointment type
+        const pm = d.procedureMix || [];
+        const types4 = [...new Set(pm.map(r=>r.appointment_type))];
+        const payers4 = [...new Set(pm.map(r=>r.provider_name))];
+        _dAna("anaTypesChart");
+        const tc2 = document.getElementById("anaTypesChart"); if (tc2) {
+            _anaCharts.anaTypesChart = new Chart(tc2, {
+                type: "bar",
+                data: { labels: types4,
+                        datasets: payers4.map((p,i) => ({
+                            label: p, backgroundColor: pal[i%pal.length], borderRadius:3,
+                            data: types4.map(t => { const row = pm.find(r=>r.provider_name===p&&r.appointment_type===t); return row ? parseFloat(row.avg_reimb_pct)||0 : 0; })
+                        }))},
+                options: { responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}},
+                           scales:{ y:{ max:100, ticks:{callback:v=>v+"%"} }, x:{ticks:{font:{size:10}}} } }
+            });
+        }
+    } catch(e) { console.error("analytics insurance:", e); }
+}
+
+async function renderAnaStaffing() {
+    try {
+        const [phRes, stRes, patRes, apptRes] = await Promise.all([
+            fetch(`/api/admin/physicians?user_id=${user.id}`),
+            fetch(`/api/admin/staff-members?user_id=${user.id}`),
+            fetch(`/api/admin/dashboard?user_id=${user.id}`),
+            fetch(`/api/admin/clinic-report?user_id=${user.id}`)
+        ]);
+        const physicians = phRes.ok ? await phRes.json() : [];
+        const staffList  = stRes.ok  ? await stRes.json() : [];
+        const dash       = patRes.ok ? await patRes.json() : {};
+        const report     = apptRes.ok ? await apptRes.json() : [];
+
+        const stats  = dash.stats || {};
+        const setV = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+        setV("anaPhysCount",   physicians.length || "—");
+        setV("anaStaffCount",  staffList.length  || "—");
+        setV("anaPatientCount", stats.total_patients ?? "—");
+        const ratio = physicians.length > 0 && stats.total_patients
+            ? Math.round(stats.total_patients / physicians.length * 10) / 10 : "—";
+        setV("anaRatioVal", ratio);
+
+        // Chart: Physicians by clinic (primary vs specialist)
+        const byClinic = {};
+        physicians.forEach(p => {
+            const loc = p.city || p.clinic_name || "Unknown";
+            if (!byClinic[loc]) byClinic[loc] = { primary:0, specialist:0 };
+            if (p.physician_type === "specialist") byClinic[loc].specialist++;
+            else byClinic[loc].primary++;
+        });
+        const locs = Object.keys(byClinic);
+        _dAna("anaPhysChart");
+        const pc = document.getElementById("anaPhysChart"); if (pc) {
+            _anaCharts.anaPhysChart = new Chart(pc, {
+                type:"bar",
+                data:{ labels:locs, datasets:[
+                    { label:"Primary",    data:locs.map(l=>byClinic[l].primary),    backgroundColor:"#4a90d9", borderRadius:4 },
+                    { label:"Specialist", data:locs.map(l=>byClinic[l].specialist), backgroundColor:"#0d7a60", borderRadius:4 }
+                ]},
+                options:{ responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}},
+                          scales:{ x:{ticks:{font:{size:10}}}, y:{beginAtZero:true,ticks:{stepSize:1}} } }
+            });
+        }
+        // Chart: Appt status this month from report rows
+        const totals = { Completed:0, Scheduled:0, Cancelled:0, "No-Show":0 };
+        report.forEach(row => {
+            if (row.completed  != null) totals.Completed  += parseInt(row.completed)  || 0;
+            if (row.scheduled  != null) totals.Scheduled  += parseInt(row.scheduled)  || 0;
+            if (row.cancelled  != null) totals.Cancelled  += parseInt(row.cancelled)  || 0;
+            if (row.no_shows   != null) totals["No-Show"] += parseInt(row.no_shows)   || 0;
+        });
+        _dAna("anaApptChart");
+        const ac = document.getElementById("anaApptChart"); if (ac) {
+            _anaCharts.anaApptChart = new Chart(ac, {
+                type:"doughnut",
+                data:{ labels:Object.keys(totals), datasets:[{ data:Object.values(totals),
+                    backgroundColor:["#0d7a60","#4a90d9","#e05c5c","#f0a43b"], borderWidth:0 }]},
+                options:{ responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}} }
+            });
+        }
+    } catch(e) { console.error("analytics staffing:", e); }
+}
+
+async function renderAnaReviews() {
+    try {
+        const r = await fetch(`/api/admin/clinic-report?user_id=${user.id}`);
+        const report = r.ok ? await r.json() : [];
+
+        let totalCompleted=0, totalNoShow=0, totalAppts=0, totalBilled=0, totalPaid=0;
+        report.forEach(row => {
+            totalCompleted += parseInt(row.completed)  || 0;
+            totalNoShow    += parseInt(row.no_shows)   || 0;
+            totalAppts     += (parseInt(row.completed)||0)+(parseInt(row.no_shows)||0)+(parseInt(row.cancelled)||0)+(parseInt(row.scheduled)||0);
+            totalBilled    += parseFloat(row.total_billed) || 0;
+            totalPaid      += parseFloat(row.total_paid)   || 0;
+        });
+        const noShowPct = totalAppts > 0 ? Math.round(totalNoShow / totalAppts * 100) + "%" : "—";
+        const outstanding = "$" + (totalBilled - totalPaid).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+        const setV = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+        setV("anaCompleted",   totalCompleted);
+        setV("anaNoShow",      noShowPct);
+        setV("anaOutstanding", outstanding);
+
+        // Chart: Outcomes by clinic
+        const labels = report.map(r => r.clinic_name || r.city || "Clinic");
+        _dAna("anaOutcomeChart");
+        const oc = document.getElementById("anaOutcomeChart"); if (oc) {
+            _anaCharts.anaOutcomeChart = new Chart(oc, {
+                type:"bar",
+                data:{ labels, datasets:[
+                    { label:"Completed", data:report.map(r=>parseInt(r.completed)||0),  backgroundColor:"#0d7a60", stack:"s", borderRadius:3 },
+                    { label:"No-Show",   data:report.map(r=>parseInt(r.no_shows)||0),   backgroundColor:"#f0a43b", stack:"s", borderRadius:3 },
+                    { label:"Cancelled", data:report.map(r=>parseInt(r.cancelled)||0),  backgroundColor:"#e05c5c", stack:"s", borderRadius:3 },
+                    { label:"Scheduled", data:report.map(r=>parseInt(r.scheduled)||0),  backgroundColor:"#4a90d9", stack:"s", borderRadius:3 }
+                ]},
+                options:{ responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}},
+                          scales:{ x:{stacked:true,ticks:{font:{size:10}}}, y:{stacked:true,beginAtZero:true} } }
+            });
+        }
+        // Chart: Billing breakdown
+        const totalUnpaid = totalBilled - totalPaid;
+        _dAna("anaBillingChart");
+        const bc = document.getElementById("anaBillingChart"); if (bc) {
+            _anaCharts.anaBillingChart = new Chart(bc, {
+                type:"doughnut",
+                data:{ labels:["Paid","Outstanding"],
+                       datasets:[{ data:[totalPaid, totalUnpaid < 0 ? 0 : totalUnpaid],
+                           backgroundColor:["#0d7a60","#e05c5c"], borderWidth:0 }]},
+                options:{ responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}} }
+            });
+        }
+    } catch(e) { console.error("analytics reviews:", e); }
 }
 
 /* ── Bootstrap ── */
