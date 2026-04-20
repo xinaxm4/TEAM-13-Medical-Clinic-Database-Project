@@ -4,7 +4,7 @@ const {
   loginAdmin, getAdminDashboard, getClinicReport,
   getAllPhysicians, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
-  getPayerScorecard, getPayerDetail, getAcceptedInsurance, addAcceptedInsurance,
+  getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
   deactivateInsurance, getPayerAlerts, markAlertRead,
   checkTerminationEligibility, terminateStaff
 } = require("../controllers/adminController");
@@ -27,6 +27,7 @@ router.delete("/staff/:id",      requireRole("admin"), deleteStaff);
 // ── Insurance Analytics ──────────────────────────────────────
 router.get("/insurance/scorecard",           requireRole("admin"), getPayerScorecard);
 router.get("/insurance/payer-detail",        requireRole("admin"), getPayerDetail);
+router.get("/insurance/overview",            requireRole("admin"), getInsuranceOverview);
 router.get("/insurance/accepted",            requireRole("admin"), getAcceptedInsurance);
 router.post("/insurance/accept",             requireRole("admin"), addAcceptedInsurance);
 router.put("/insurance/:id/deactivate",      requireRole("admin"), deactivateInsurance);

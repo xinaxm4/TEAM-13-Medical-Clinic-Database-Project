@@ -161,3 +161,256 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- ─────────────────────────────────────────────────────────────
+-- Supporting table: patient_notification
+-- Created by Trigger A2 on insurance deactivation. Safe to re-run.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS patient_notification (
+  notification_id   INT AUTO_INCREMENT PRIMARY KEY,
+  patient_id        INT NOT NULL,
+  message           VARCHAR(500) NOT NULL,
+  notification_type ENUM('insurance_change','appointment_reminder','general') DEFAULT 'general',
+  is_read           BOOLEAN DEFAULT FALSE,
+  effective_date    DATE,
+  created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id) REFERENCES patient(patient_id) ON DELETE CASCADE
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- Trigger A: BLOCK insurance deactivation if payer score >= 70
+--
+-- Composite payer score formula (mirrors the dashboard JS):
+--   financial_score   = LEAST( (actual_reimb% / contracted%) * 100, 100 )
+--   reliability_score = paid_claims / total_claims * 100
+--   completion_rate   = completed_appts / total_appts * 100
+--   composite = 0.50 * financial_score
+--             + 0.30 * completion_rate
+--             + 0.20 * reliability_score
+--
+-- Score >= 70 → BLOCK: payer is performing well, keep the plan
+-- Score <  70 → ALLOW: payer is underperforming, deactivation is justified
+-- ─────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS before_insurance_plan_deactivated;
+
+DELIMITER $$
+
+CREATE TRIGGER before_insurance_plan_deactivated
+BEFORE UPDATE ON clinic_accepted_insurance
+FOR EACH ROW
+BEGIN
+  DECLARE v_contracted_rate   DECIMAL(6,2) DEFAULT 0;
+  DECLARE v_total_billed      DECIMAL(12,2) DEFAULT 0;
+  DECLARE v_total_paid        DECIMAL(12,2) DEFAULT 0;
+  DECLARE v_total_claims      INT DEFAULT 0;
+  DECLARE v_paid_claims       INT DEFAULT 0;
+  DECLARE v_total_appts       INT DEFAULT 0;
+  DECLARE v_completed_appts   INT DEFAULT 0;
+  DECLARE v_financial_score   DECIMAL(6,2) DEFAULT 0;
+  DECLARE v_reliability_score DECIMAL(6,2) DEFAULT 0;
+  DECLARE v_completion_rate   DECIMAL(6,2) DEFAULT 0;
+  DECLARE v_composite         DECIMAL(6,2) DEFAULT 0;
+  DECLARE v_provider_name     VARCHAR(100) DEFAULT '';
+  DECLARE v_msg               VARCHAR(512);
+
+  IF NEW.is_active = FALSE AND OLD.is_active = TRUE THEN
+
+    -- Get contracted rate + provider name
+    SELECT coverage_percentage, provider_name
+      INTO v_contracted_rate, v_provider_name
+      FROM insurance WHERE insurance_id = NEW.insurance_id;
+
+    -- Billing stats for this payer
+    SELECT
+      IFNULL(SUM(b.total_amount), 0),
+      IFNULL(SUM(b.insurance_paid_amount), 0),
+      COUNT(b.bill_id),
+      SUM(CASE WHEN b.payment_status = 'Paid' THEN 1 ELSE 0 END)
+    INTO v_total_billed, v_total_paid, v_total_claims, v_paid_claims
+    FROM billing b
+    WHERE b.insurance_id = NEW.insurance_id;
+
+    -- Appointment completion rate for patients on this plan
+    SELECT
+      COUNT(a.appointment_id),
+      SUM(CASE WHEN s.status_name = 'Completed' THEN 1 ELSE 0 END)
+    INTO v_total_appts, v_completed_appts
+    FROM patient p
+    JOIN appointment a        ON a.patient_id = p.patient_id
+    JOIN appointment_status s ON a.status_id  = s.status_id
+    WHERE p.insurance_id = NEW.insurance_id;
+
+    -- Financial score: how close actual reimbursement tracks contracted rate
+    IF v_total_billed > 0 AND v_contracted_rate > 0 THEN
+      SET v_financial_score = LEAST(
+        ((v_total_paid / v_total_billed) * 100 / v_contracted_rate) * 100,
+        100
+      );
+    END IF;
+
+    -- Reliability score: % of claims fully paid
+    IF v_total_claims > 0 THEN
+      SET v_reliability_score = (v_paid_claims / v_total_claims) * 100;
+    END IF;
+
+    -- Access score: appointment completion rate
+    IF v_total_appts > 0 THEN
+      SET v_completion_rate = (v_completed_appts / v_total_appts) * 100;
+    END IF;
+
+    -- Composite score (same weights as JS dashboard)
+    SET v_composite = (0.50 * v_financial_score)
+                    + (0.30 * v_completion_rate)
+                    + (0.20 * v_reliability_score);
+
+    -- Block if payer scores >= 70 (performing well — keep the plan)
+    IF v_composite >= 70 THEN
+      SET v_msg = CONCAT(
+        'Cannot deactivate ', v_provider_name,
+        ': composite score is ', ROUND(v_composite, 1),
+        '/100 (block threshold: 70). ',
+        'Financial: ', ROUND(v_financial_score, 1),
+        '% | Reliability: ', ROUND(v_reliability_score, 1),
+        '% | Completion: ', ROUND(v_completion_rate, 1), '%'
+      );
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
+
+  END IF;
+END$$
+
+DELIMITER ;
+
+-- ─────────────────────────────────────────────────────────────
+-- Trigger A2: After insurance deactivation approved → notify patients
+--
+-- Only fires when the BEFORE trigger did NOT block the update
+-- (meaning the payer scored < 70 and deactivation was justified).
+-- Inserts a 60-day notice for every patient enrolled in this plan.
+-- ─────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS after_insurance_plan_deactivated;
+
+DELIMITER $$
+
+CREATE TRIGGER after_insurance_plan_deactivated
+AFTER UPDATE ON clinic_accepted_insurance
+FOR EACH ROW
+BEGIN
+  DECLARE v_provider_name VARCHAR(255);
+  DECLARE v_clinic_name   VARCHAR(255);
+  DECLARE v_effective_dt  DATE;
+
+  IF NEW.is_active = FALSE AND OLD.is_active = TRUE THEN
+    SELECT provider_name INTO v_provider_name FROM insurance WHERE insurance_id = NEW.insurance_id;
+    SELECT clinic_name   INTO v_clinic_name   FROM clinic    WHERE clinic_id    = NEW.clinic_id;
+    SET v_effective_dt = DATE_ADD(CURDATE(), INTERVAL 60 DAY);
+
+    INSERT INTO patient_notification (patient_id, message, notification_type, effective_date)
+    SELECT
+      p.patient_id,
+      CONCAT('Notice: ', v_provider_name,
+             ' will no longer be accepted at ', v_clinic_name,
+             ' after ', DATE_FORMAT(v_effective_dt, '%M %d, %Y'),
+             '. Please contact us to discuss your care options.'),
+      'insurance_change',
+      v_effective_dt
+    FROM patient p
+    WHERE p.insurance_id = NEW.insurance_id;
+  END IF;
+END$$
+
+DELIMITER ;
+
+-- ─────────────────────────────────────────────────────────────
+-- Trigger B: Block physician deletion with upcoming appointments
+--
+-- Prevents removing a physician if they still have future scheduled
+-- appointments — admin must reassign or cancel them first.
+-- ─────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS before_physician_delete_check;
+
+DELIMITER $$
+
+CREATE TRIGGER before_physician_delete_check
+BEFORE DELETE ON physician
+FOR EACH ROW
+BEGIN
+  DECLARE upcoming_count INT DEFAULT 0;
+
+  SELECT COUNT(*) INTO upcoming_count
+  FROM appointment a
+  JOIN appointment_status s ON a.status_id = s.status_id
+  WHERE a.physician_id        = OLD.physician_id
+    AND s.status_name         = 'Scheduled'
+    AND a.appointment_date   >= CURDATE();
+
+  IF upcoming_count > 0 THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Cannot delete physician: they have upcoming scheduled appointments. Reassign or cancel them first.';
+  END IF;
+END$$
+
+DELIMITER ;
+
+-- ─────────────────────────────────────────────────────────────
+-- Trigger C: Block staff deletion when clinic would be understaffed
+--
+-- Formula: 1 staff member is required per 50 active patients at the
+-- clinic (minimum 1). Active patients = distinct patients with any
+-- appointment at this clinic's office.
+--
+-- remaining_after = current staff at clinic − 1
+-- required        = GREATEST( CEIL(patient_count / 50), 1 )
+-- Block if remaining_after < required
+-- ─────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS before_staff_delete_check;
+
+DELIMITER $$
+
+CREATE TRIGGER before_staff_delete_check
+BEFORE DELETE ON staff
+FOR EACH ROW
+BEGIN
+  DECLARE v_clinic_id      INT DEFAULT NULL;
+  DECLARE v_remaining      INT DEFAULT 0;
+  DECLARE v_patient_count  INT DEFAULT 0;
+  DECLARE v_required       INT DEFAULT 1;
+  DECLARE v_msg            VARCHAR(512);
+
+  -- Find which clinic this staff member belongs to
+  SELECT d.clinic_id INTO v_clinic_id
+  FROM department d
+  WHERE d.department_id = OLD.department_id
+  LIMIT 1;
+
+  IF v_clinic_id IS NOT NULL THEN
+
+    -- How many staff would remain after this deletion
+    SELECT COUNT(*) INTO v_remaining
+    FROM staff s
+    JOIN department d ON s.department_id = d.department_id
+    WHERE d.clinic_id = v_clinic_id
+      AND s.staff_id != OLD.staff_id;
+
+    -- Active patient count: distinct patients with appointments at this clinic
+    SELECT COUNT(DISTINCT a.patient_id) INTO v_patient_count
+    FROM appointment a
+    JOIN office o ON a.office_id = o.office_id
+    WHERE o.clinic_id = v_clinic_id;
+
+    -- Required staff = 1 per 50 patients, minimum 1
+    SET v_required = GREATEST(CEIL(v_patient_count / 50), 1);
+
+    IF v_remaining < v_required THEN
+      SET v_msg = CONCAT(
+        'Cannot delete staff: clinic has ', v_patient_count, ' active patients ',
+        'requiring at least ', v_required, ' staff member(s). ',
+        'Only ', v_remaining, ' would remain after this deletion.'
+      );
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
+
+  END IF;
+END$$
+
+DELIMITER ;
