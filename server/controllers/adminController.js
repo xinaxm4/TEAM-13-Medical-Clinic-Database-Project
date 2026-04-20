@@ -145,10 +145,34 @@ const getAllPhysicians = (req, res) => {
   db.query(
     `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.email,
             ph.phone_number, ph.specialty, ph.physician_type, ph.hire_date,
-            d.department_name, c.clinic_name
+            d.department_name, c.clinic_name,
+            -- Performance stats from last 90 days
+            IFNULL(perf.total_appts, 0)     AS total_appts,
+            IFNULL(perf.completed, 0)       AS completed_appts,
+            IFNULL(perf.no_shows, 0)        AS no_show_appts,
+            IFNULL(perf.completion_rate, 0) AS completion_rate,
+            -- Performance score: 70% completion rate + 30% no-show avoidance
+            ROUND(
+              IFNULL(perf.completion_rate, 0) * 0.70 +
+              GREATEST(100 - IFNULL(perf.noshow_rate, 0), 0) * 0.30
+            , 0) AS performance_score
      FROM physician ph
      LEFT JOIN department d ON ph.department_id = d.department_id
      LEFT JOIN clinic c ON d.clinic_id = c.clinic_id
+     LEFT JOIN (
+       SELECT a.physician_id,
+         COUNT(a.appointment_id) AS total_appts,
+         SUM(CASE WHEN s.status_name = 'Completed' THEN 1 ELSE 0 END) AS completed,
+         SUM(CASE WHEN s.status_name = 'No-Show'   THEN 1 ELSE 0 END) AS no_shows,
+         ROUND(SUM(CASE WHEN s.status_name = 'Completed' THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(a.appointment_id), 0) * 100, 1) AS completion_rate,
+         ROUND(SUM(CASE WHEN s.status_name = 'No-Show' THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(a.appointment_id), 0) * 100, 1) AS noshow_rate
+       FROM appointment a
+       JOIN appointment_status s ON a.status_id = s.status_id
+       WHERE a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+       GROUP BY a.physician_id
+     ) perf ON perf.physician_id = ph.physician_id
      ORDER BY ph.last_name, ph.first_name`,
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });

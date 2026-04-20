@@ -240,7 +240,7 @@
             <button class="nav-item"         onclick="showSection('physicians')"><i class="fa-solid fa-user-doctor"></i>Physicians</button>
             <button class="nav-item"         onclick="showSection('staff')"><i class="fa-solid fa-id-badge"></i>Staff Members</button>
             <button class="nav-item"         onclick="showSection('reports')"><i class="fa-solid fa-chart-line"></i>Financial Reports</button>
-            <button class="nav-item"         onclick="showSection('insurance')"><i class="fa-solid fa-chart-pie"></i>Analytics</button>
+            <button class="nav-item"         onclick="showSection('insurance')"><i class="fa-solid fa-shield-halved"></i>Insurance</button>
             <button class="nav-item"         onclick="showSection('analytics')"><i class="fa-solid fa-chart-bar"></i>Analytics</button>
             <button class="nav-item"         onclick="showSection('settings')"><i class="fa-solid fa-sliders"></i>Clinic Settings</button>
         </nav>
@@ -740,25 +740,45 @@
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
                     <div class="section-card">
-                        <div class="card-title">Reimbursement vs Threshold by Payer</div>
-                        <div class="card-sub">Blue bar below gray = paying under contracted minimum</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Reimbursement vs Threshold by Payer</div>
+                                <div class="card-sub">How much each insurance company actually pays compared to what was agreed</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Each bar shows how much an insurance company paid out of what they owe. The line is the minimum amount your clinic agreed to accept. If a bar falls below that line, the insurer is paying less than the contract requires.</span></span>
+                        </div>
                         <canvas id="anaReimbChart" height="200"></canvas>
                     </div>
                     <div class="section-card">
-                        <div class="card-title">Claim Status by Payer</div>
-                        <div class="card-sub">Large unpaid portion = higher administrative burden</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Claim Status by Payer</div>
+                                <div class="card-sub">Which insurance companies still have unpaid bills</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows how many bills have been paid vs still waiting for payment, broken down by insurance company. A large unpaid portion means your clinic is waiting a long time to get money it is already owed.</span></span>
+                        </div>
                         <canvas id="anaStatusChart" height="200"></canvas>
                     </div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
                     <div class="section-card">
-                        <div class="card-title">Visit Volume by Payer — Last 6 Months</div>
-                        <div class="card-sub">High volume + low reimbursement = financial risk</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Visit Volume by Payer — Last 6 Months</div>
+                                <div class="card-sub">How many patient visits each insurance plan is responsible for</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows how many appointments came from patients on each insurance plan over the last 6 months. If one plan drives a lot of visits but pays poorly, that is a financial risk worth reviewing.</span></span>
+                        </div>
                         <canvas id="anaVolumeChart" height="200"></canvas>
                     </div>
                     <div class="section-card">
-                        <div class="card-title">Reimbursement % by Appointment Type</div>
-                        <div class="card-sub">Shows which procedure types each payer underpays</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Reimbursement by Appointment Type</div>
+                                <div class="card-sub">Which visit types each insurer tends to underpay</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Breaks down payment rates by the type of visit (check-up, specialist, follow-up, etc.). Helps identify whether an insurer pays fairly across all visit types or only underpays certain ones.</span></span>
+                        </div>
                         <canvas id="anaTypesChart" height="200"></canvas>
                     </div>
                 </div>
@@ -774,13 +794,23 @@
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                     <div class="section-card">
-                        <div class="card-title">Physicians by Clinic Location</div>
-                        <div class="card-sub">Primary vs specialist breakdown per city</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Physicians by Clinic Location</div>
+                                <div class="card-sub">Primary care vs specialist doctors at each location</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows how many doctors are at each clinic and whether they are primary care (your regular doctor) or specialists (experts in a specific area). Helps spot locations that may be under-resourced.</span></span>
+                        </div>
                         <canvas id="anaPhysChart" height="220"></canvas>
                     </div>
                     <div class="section-card">
-                        <div class="card-title">Appointments This Month by Status</div>
-                        <div class="card-sub">Completed, no-show, cancelled, scheduled</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Appointments This Month by Status</div>
+                                <div class="card-sub">How many visits were kept, missed, or cancelled</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A breakdown of all appointments this month. Completed means the patient showed up. No-show means they did not come and did not cancel. High no-show rates may indicate scheduling or reminder issues.</span></span>
+                        </div>
                         <canvas id="anaApptChart" height="220"></canvas>
                     </div>
                 </div>
@@ -795,13 +825,23 @@
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                     <div class="section-card">
-                        <div class="card-title">Appointment Outcomes — Last 90 Days</div>
-                        <div class="card-sub">By status across all clinics</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Appointment Outcomes — Last 90 Days</div>
+                                <div class="card-sub">Overall picture of how appointments are going across all locations</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A 90-day summary of all appointment results across every clinic. A healthy clinic has most visits marked Completed. A high Cancelled or No-Show rate may point to scheduling problems or patient access issues.</span></span>
+                        </div>
                         <canvas id="anaOutcomeChart" height="230"></canvas>
                     </div>
                     <div class="section-card">
-                        <div class="card-title">Billing Status Breakdown</div>
-                        <div class="card-sub">Paid vs unpaid vs overdue</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div>
+                                <div class="card-title">Billing Status Breakdown</div>
+                                <div class="card-sub">Money that has been collected vs still outstanding</div>
+                            </div>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows the current state of all bills across the clinic. Paid means the money has been collected. Unpaid means it is still owed. A large unpaid balance may mean patients or insurers are behind on payments.</span></span>
+                        </div>
                         <canvas id="anaBillingChart" height="230"></canvas>
                     </div>
                 </div>

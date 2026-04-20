@@ -335,18 +335,53 @@ CREATE TRIGGER before_physician_delete_check
 BEFORE DELETE ON physician
 FOR EACH ROW
 BEGIN
-  DECLARE upcoming_count INT DEFAULT 0;
+  DECLARE upcoming_count    INT DEFAULT 0;
+  DECLARE total_appts       INT DEFAULT 0;
+  DECLARE completed_appts   INT DEFAULT 0;
+  DECLARE noshow_appts      INT DEFAULT 0;
+  DECLARE completion_rate   DECIMAL(5,1) DEFAULT 0;
+  DECLARE noshow_rate       DECIMAL(5,1) DEFAULT 0;
+  DECLARE perf_score        INT DEFAULT 0;
+  DECLARE v_msg             VARCHAR(512);
 
+  -- Block if they have upcoming scheduled appointments
   SELECT COUNT(*) INTO upcoming_count
   FROM appointment a
   JOIN appointment_status s ON a.status_id = s.status_id
-  WHERE a.physician_id        = OLD.physician_id
-    AND s.status_name         = 'Scheduled'
-    AND a.appointment_date   >= CURDATE();
+  WHERE a.physician_id      = OLD.physician_id
+    AND s.status_name       = 'Scheduled'
+    AND a.appointment_date >= CURDATE();
 
   IF upcoming_count > 0 THEN
     SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'Cannot delete physician: they have upcoming scheduled appointments. Reassign or cancel them first.';
+    SET MESSAGE_TEXT = 'Cannot remove this doctor: they still have upcoming patient appointments on their schedule. Please reassign or cancel those visits first.';
+  END IF;
+
+  -- Block if they are a high performer (score >= 80 over last 90 days)
+  SELECT
+    COUNT(a.appointment_id),
+    SUM(CASE WHEN s.status_name = 'Completed' THEN 1 ELSE 0 END),
+    SUM(CASE WHEN s.status_name = 'No-Show'   THEN 1 ELSE 0 END)
+  INTO total_appts, completed_appts, noshow_appts
+  FROM appointment a
+  JOIN appointment_status s ON a.status_id = s.status_id
+  WHERE a.physician_id = OLD.physician_id
+    AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY);
+
+  IF total_appts > 0 THEN
+    SET completion_rate = (completed_appts / total_appts) * 100;
+    SET noshow_rate     = (noshow_appts    / total_appts) * 100;
+    SET perf_score      = ROUND((completion_rate * 0.70) + (GREATEST(100 - noshow_rate, 0) * 0.30));
+
+    IF perf_score >= 80 THEN
+      SET v_msg = CONCAT(
+        'Cannot remove Dr. ', OLD.first_name, ' ', OLD.last_name,
+        ': their performance score is ', perf_score, '/100, ',
+        'which is above the protection threshold of 80. ',
+        'High-performing doctors are protected to maintain quality of care.'
+      );
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
   END IF;
 END$$
 

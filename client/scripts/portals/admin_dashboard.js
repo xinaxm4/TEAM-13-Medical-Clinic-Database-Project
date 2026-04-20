@@ -175,8 +175,21 @@ async function loadPhysicians() {
         _physicianCache = {};
         rows.forEach(p => { _physicianCache[p.physician_id] = p; });
         document.getElementById("physicianListBody").innerHTML = rows.length
-            ? rows.map(p => `<tr>
-                <td class="primary">Dr. ${p.first_name} ${p.last_name}</td>
+            ? rows.map(p => {
+                const score = p.performance_score || 0;
+                const scoreColor = score >= 80 ? "#22c97a" : score >= 60 ? "#f5a623" : "#e05c5c";
+                const scoreLabel = score >= 80 ? "High Performer" : score >= 60 ? "Solid" : "Needs Attention";
+                const scoreBadge = p.total_appts > 0
+                    ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:6px;background:${scoreColor}22;border:1px solid ${scoreColor};color:${scoreColor};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">
+                          ${score}/100
+                          <span class="info-tip" style="line-height:1">
+                            <i class="tip-icon" style="background:${scoreColor}44;color:${scoreColor}">i</i>
+                            <span class="tip-text"><strong>${scoreLabel}</strong><br>Based on last 90 days:<br>• ${p.completed_appts} appointments completed<br>• ${p.no_show_appts} no-shows<br>• ${p.completion_rate}% show-up rate<br><br>Scores 80+ are protected from deletion.</span>
+                          </span>
+                       </span>`
+                    : `<span style="margin-left:6px;font-size:10px;color:#aaa">No data yet</span>`;
+                return `<tr>
+                <td class="primary" style="white-space:nowrap">Dr. ${p.first_name} ${p.last_name}${scoreBadge}</td>
                 <td>${p.specialty || "—"}</td>
                 <td style="text-transform:capitalize">${p.physician_type || "—"}</td>
                 <td>${p.department_name || "—"}</td>
@@ -189,10 +202,9 @@ async function loadPhysicians() {
                             style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
                         <button onclick="confirmDeletePhysician(${p.physician_id},'Dr. ${p.first_name} ${p.last_name}')"
                             style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
-                        <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A doctor can only be removed if they have no upcoming patient visits on their calendar. If they do, those appointments need to be cancelled or moved to another doctor first.</span></span>
                     </div>
                 </td>
-            </tr>`).join("")
+            </tr>`;}).join("")
             : `<tr><td colspan="8" class="table-empty">No physicians found</td></tr>`;
     } catch(e) {
         document.getElementById("physicianListBody").innerHTML = `<tr><td colspan="8" class="table-empty">Could not load data</td></tr>`;
@@ -379,7 +391,6 @@ async function loadStaff() {
                             style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
                         <button onclick="confirmDeleteStaff(${s.staff_id},'${s.first_name} ${s.last_name}')"
                             style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
-                        <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A staff member can only be removed if the clinic still has enough people to serve its patients. The clinic needs at least 1 staff member for every 50 patients. If removing this person would leave the clinic short-staffed, the action will be blocked.</span></span>
                     </div>
                 </td>
             </tr>`).join("")
@@ -729,9 +740,10 @@ function _renderPayerPills(payers) {
     if (!payers.length) { row.innerHTML = '<span style="color:#aaa;font-size:13px">No payer data.</span>'; return; }
     row.innerHTML = payers.map((p, i) => {
         const s = _computeScore(p);
-        const icon = s.status === "strong" ? "🟢" : s.status === "monitor" ? "🟡" : "🔴";
+        const dotColor = s.status === "strong" ? "#22c97a" : s.status === "monitor" ? "#f5a623" : "#e05c5c";
+        const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};margin-right:6px;vertical-align:middle"></span>`;
         return `<button class="ins-payer-pill${i === 0 ? " active" : ""}"
-            onclick="selectPayer(${p.insurance_id}, this)">${icon} ${p.provider_name}</button>`;
+            onclick="selectPayer(${p.insurance_id}, this)">${dot}${p.provider_name}</button>`;
     }).join("");
 }
 
@@ -1273,7 +1285,7 @@ async function loadAcceptedInsurance() {
                 ? `<span class="dot active"></span>Active`
                 : `<span class="dot inactive"></span>Inactive`;
             const deactivateBtn = row.is_active
-                ? `<div style="display:inline-flex;align-items:center;gap:4px"><button onclick="deactivateInsuranceRow(${row.id})" style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Deactivate</button><span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">This removes the insurance plan from the clinic. It can only be removed if the plan is underperforming (score below 70 out of 100). If the plan is working well for patients, the system will block the removal to protect their coverage. All affected patients will automatically receive a 60-day heads-up notice.</span></span></div>`
+                ? `<button onclick="deactivateInsuranceRow(${row.id})" style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Deactivate</button>`
                 : `<span style="font-size:11px;color:#aaa">Removed ${fmt(row.removed_date)}</span>`;
             return `<tr>
                 <td>${dot}</td>
