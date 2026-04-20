@@ -443,6 +443,32 @@ async function updateReferralStatus(referral_id, status_name, context) {
     }
 }
 
+async function loadSpecialistReferralHistory(physician_id) {
+    const tbody = document.getElementById("referralsBody");
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
+    try {
+        const res = await fetch(`/api/staff/physician/referrals?physician_id=${physician_id}&user_id=${user.id}`);
+        const referrals = await res.json();
+        if (!referrals || referrals.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No referrals on record</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = referrals.map(r => `<tr>
+            <td class="primary">${r.patient_first} ${r.patient_last}</td>
+            <td>Dr. ${r.primary_first} ${r.primary_last}</td>
+            <td>${r.referral_reason || "—"}</td>
+            <td>${fmt(r.date_issued)}</td>
+            <td>${fmt(r.expiration_date)}</td>
+            <td>${pill(r.referral_status_name)}</td>
+            <td>${r.referral_status_name === "Issued"
+                ? `<button class="profile-edit-btn" style="font-size:11px;padding:4px 10px" onclick="openReferralModal(${JSON.stringify(r).replace(/"/g, '&quot;')}, 'specialist')">Review →</button>`
+                : "—"}</td>
+        </tr>`).join("");
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Error loading referrals</td></tr>`;
+    }
+}
+
 async function loadIncomingReferrals(physician_id) {
     const container = document.getElementById("incomingReferralCards");
     if (!container) return;
@@ -559,6 +585,7 @@ async function loadDashboard() {
 
         const { physician, appointments, patients, schedule, referrals } = data;
         _dashPatients = patients || [];   // cache for Create Referral modal
+        const isSpecialist = physician && physician.physician_type === 'specialist';
 
         /* Greeting */
         const docName = physician ? `Dr. ${physician.last_name}` : "Doctor";
@@ -593,15 +620,19 @@ async function loadDashboard() {
             </tr>`).join("")
             : `<tr><td colspan="4" class="table-empty">No upcoming appointments</td></tr>`;
 
-        /* Overview: referrals */
+        /* Overview: referrals — primary shows outgoing, specialist shows incoming */
         const rBody = document.getElementById("overviewRefBody");
-        rBody.innerHTML = referrals.slice(0, 5).length
-            ? referrals.slice(0, 5).map(r => `<tr>
-                <td class="primary">${r.patient_first} ${r.patient_last}</td>
-                <td>Dr. ${r.spec_last}</td>
-                <td>${pill(r.referral_status_name)}</td>
-            </tr>`).join("")
-            : `<tr><td colspan="3" class="table-empty">No referrals on record</td></tr>`;
+        if (isSpecialist) {
+            rBody.innerHTML = `<tr><td colspan="3" class="table-empty" style="font-size:12px;color:#888">See Referrals tab for full history</td></tr>`;
+        } else {
+            rBody.innerHTML = referrals.slice(0, 5).length
+                ? referrals.slice(0, 5).map(r => `<tr>
+                    <td class="primary">${r.patient_first} ${r.patient_last}</td>
+                    <td>Dr. ${r.spec_last}</td>
+                    <td>${pill(r.referral_status_name)}</td>
+                </tr>`).join("")
+                : `<tr><td colspan="3" class="table-empty">No referrals on record</td></tr>`;
+        }
 
         /* Appointments — split into upcoming and past */
         const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
@@ -690,21 +721,36 @@ async function loadDashboard() {
         const officeId = schedule && schedule.length > 0 ? schedule[0].office_id : null;
         buildMemberCalendar(physician ? physician.physician_id : null, schedule, officeId);
 
-        /* Referrals table (issued by this physician — PCP view) */
-        document.getElementById("referralsBody").innerHTML = referrals.length
-            ? referrals.map(r => `<tr>
-                <td class="primary">${r.patient_first} ${r.patient_last}</td>
-                <td>Dr. ${r.spec_first} ${r.spec_last}</td>
-                <td>${r.specialty || "—"}</td>
-                <td>${r.referral_reason || "—"}</td>
-                <td>${fmt(r.date_issued)}</td>
-                <td>${fmt(r.expiration_date)}</td>
-                <td>${pill(r.referral_status_name)}</td>
-                <td>${r.referral_status_name === "Requested"
-                    ? `<button class="profile-edit-btn" style="font-size:11px;padding:4px 10px" onclick="openReferralModal(${JSON.stringify(r).replace(/"/g, '&quot;')}, 'pcp')">Review →</button>`
-                    : "—"}</td>
-            </tr>`).join("")
-            : `<tr><td colspan="8" class="table-empty">No referrals on record</td></tr>`;
+        /* Referrals — behaviour differs by physician type */
+        if (isSpecialist) {
+            /* Specialist: hide Create Referral, retitle section, swap table headers */
+            const createBtn = document.getElementById("createReferralBtn");
+            if (createBtn) createBtn.style.display = "none";
+
+            const title = document.getElementById("referralsSectionTitle");
+            const sub   = document.getElementById("referralsSectionSubtitle");
+            if (title) title.textContent = "Referral History";
+            if (sub)   sub.textContent   = "All referrals directed to you as a specialist";
+
+            const thead = document.getElementById("referralsTableHead");
+            if (thead) thead.innerHTML = `<tr><th>Patient</th><th>Referred By</th><th>Reason</th><th>Issued</th><th>Expires</th><th>Status</th><th>Action</th></tr>`;
+
+            loadSpecialistReferralHistory(physician.physician_id);
+        } else {
+            /* Primary physician: outgoing referrals table */
+            document.getElementById("referralsBody").innerHTML = referrals.length
+                ? referrals.map(r => `<tr>
+                    <td class="primary">${r.patient_first} ${r.patient_last}</td>
+                    <td>Dr. ${r.spec_first} ${r.spec_last}</td>
+                    <td>${r.specialty || "—"}</td>
+                    <td>${r.referral_reason || "—"}</td>
+                    <td>${fmt(r.date_issued)}</td>
+                    <td>${fmt(r.expiration_date)}</td>
+                    <td>${pill(r.referral_status_name)}</td>
+                    <td>—</td>
+                </tr>`).join("")
+                : `<tr><td colspan="8" class="table-empty">No referrals on record</td></tr>`;
+        }
 
         /* Load incoming referrals (where this physician is the specialist) */
         if (physician) {

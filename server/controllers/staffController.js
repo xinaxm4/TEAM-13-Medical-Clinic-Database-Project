@@ -96,7 +96,7 @@ const getPhysicianDashboard = (req, res) => {
 
       const physicianSql = `
         SELECT ph.physician_id, ph.first_name, ph.last_name, ph.email,
-               ph.phone_number, ph.specialty, ph.hire_date,
+               ph.phone_number, ph.specialty, ph.hire_date, ph.physician_type,
                d.department_name, d.description AS dept_description
         FROM physician ph
         LEFT JOIN department d ON ph.department_id = d.department_id

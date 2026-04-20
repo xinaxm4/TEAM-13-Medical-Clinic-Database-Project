@@ -390,11 +390,11 @@
         <div class="page-section hidden" id="sec-referrals">
             <div class="section-block">
                 <div class="section-block-header">
-                    <div><h3>Referrals</h3><p>Outgoing referrals you have issued and incoming referrals from other physicians</p></div>
-                    <button class="profile-edit-btn" onclick="openCreateReferralModal()" style="background:#4a90d9;color:#fff;border-color:#4a90d9">+ Create Referral</button>
+                    <div><h3 id="referralsSectionTitle">Referrals</h3><p id="referralsSectionSubtitle">Outgoing referrals you have issued</p></div>
+                    <button id="createReferralBtn" class="profile-edit-btn" onclick="openCreateReferralModal()" style="background:#4a90d9;color:#fff;border-color:#4a90d9">+ Create Referral</button>
                 </div>
                 <table class="data-table">
-                    <thead>
+                    <thead id="referralsTableHead">
                         <tr><th>Patient</th><th>Specialist</th><th>Specialty</th><th>Reason</th><th>Issued</th><th>Expires</th><th>Status</th><th>Action</th></tr>
                     </thead>
                     <tbody id="referralsBody"><tr><td colspan="8" class="table-empty">Loading…</td></tr></tbody>
