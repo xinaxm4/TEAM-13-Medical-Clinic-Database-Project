@@ -376,7 +376,23 @@
             </div>
 
             <div class="section-block">
-                <div class="section-block-header"><h3>All Physicians</h3></div>
+                <div class="section-block-header">
+                    <h3>All Physicians</h3>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <input type="text" id="phSearchInput" placeholder="Search by name…" oninput="filterPhysicians()"
+                            style="padding:7px 12px;border:1px solid #c5d2f0;border-radius:7px;font-size:13px;font-family:inherit;width:180px">
+                        <select id="phClinicFilter" onchange="filterPhysicians()"
+                            style="padding:7px 12px;border:1px solid #c5d2f0;border-radius:7px;font-size:13px;font-family:inherit;background:#fff">
+                            <option value="">All Locations</option>
+                        </select>
+                        <select id="phTypeFilter" onchange="filterPhysicians()"
+                            style="padding:7px 12px;border:1px solid #c5d2f0;border-radius:7px;font-size:13px;font-family:inherit;background:#fff">
+                            <option value="">All Types</option>
+                            <option value="primary">Primary Care</option>
+                            <option value="specialist">Specialist</option>
+                        </select>
+                    </div>
+                </div>
                 <div style="overflow-x:auto">
                     <table class="data-table">
                         <thead><tr><th>Name</th><th>Specialty</th><th>Type</th><th>Department</th><th>Clinic</th><th>Email</th><th>Hire Date</th><th>Actions</th></tr></thead>
@@ -428,7 +444,27 @@
             </div>
 
             <div class="section-block">
-                <div class="section-block-header"><h3>All Staff Members</h3></div>
+                <div class="section-block-header">
+                    <h3>All Staff Members</h3>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <input type="text" id="stSearchInput" placeholder="Search by name…" oninput="filterStaff()"
+                            style="padding:7px 12px;border:1px solid #c5d2f0;border-radius:7px;font-size:13px;font-family:inherit;width:180px">
+                        <select id="stClinicFilter" onchange="filterStaff()"
+                            style="padding:7px 12px;border:1px solid #c5d2f0;border-radius:7px;font-size:13px;font-family:inherit;background:#fff">
+                            <option value="">All Locations</option>
+                        </select>
+                        <select id="stRoleFilter" onchange="filterStaff()"
+                            style="padding:7px 12px;border:1px solid #c5d2f0;border-radius:7px;font-size:13px;font-family:inherit;background:#fff">
+                            <option value="">All Roles</option>
+                            <option value="Receptionist">Receptionist</option>
+                            <option value="Nurse">Nurse</option>
+                            <option value="Medical Assistant">Medical Assistant</option>
+                            <option value="Billing Specialist">Billing Specialist</option>
+                            <option value="Lab Technician">Lab Technician</option>
+                            <option value="Office Manager">Office Manager</option>
+                        </select>
+                    </div>
+                </div>
                 <div style="overflow-x:auto">
                     <table class="data-table">
                         <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Clinic</th><th>Email</th><th>Shift</th><th>Hire Date</th><th>Actions</th></tr></thead>
@@ -796,22 +832,22 @@
                     <div class="section-card">
                         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
                             <div>
-                                <div class="card-title">Physicians by Clinic Location</div>
-                                <div class="card-sub">Primary care vs specialist doctors at each location</div>
+                                <div class="card-title">Doctors by Clinic Location</div>
+                                <div class="card-sub">Primary care vs specialist breakdown at each location</div>
                             </div>
-                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows how many doctors are at each clinic and whether they are primary care (your regular doctor) or specialists (experts in a specific area). Helps spot locations that may be under-resourced.</span></span>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows how many doctors work at each clinic and whether they are primary care (your regular doctor) or a specialist (expert in a specific area like cardiology or orthopedics). Helps spot locations that may need more staff.</span></span>
                         </div>
                         <canvas id="anaPhysChart" height="220"></canvas>
                     </div>
                     <div class="section-card">
                         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
                             <div>
-                                <div class="card-title">Appointments This Month by Status</div>
-                                <div class="card-sub">How many visits were kept, missed, or cancelled</div>
+                                <div class="card-title">Patients per Staff Member by Location</div>
+                                <div class="card-sub">Higher bars = staff are handling more patients</div>
                             </div>
-                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">A breakdown of all appointments this month. Completed means the patient showed up. No-show means they did not come and did not cancel. High no-show rates may indicate scheduling or reminder issues.</span></span>
+                            <span class="info-tip"><i class="tip-icon">i</i><span class="tip-text">Shows how many patients each staff member at a location is responsible for. The red line marks the maximum recommended limit of 50 patients per staff member. Bars above the line mean that location may be understaffed.</span></span>
                         </div>
-                        <canvas id="anaApptChart" height="220"></canvas>
+                        <canvas id="anaStaffRatioChart" height="220"></canvas>
                     </div>
                 </div>
             </div>

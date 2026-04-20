@@ -144,6 +144,8 @@ async function loadOverview() {
 let _departmentsLoaded = false;
 let _physicianCache    = {};   // id → row object, for edit modal pre-fill
 let _staffCache        = {};   // id → row object
+let _physicianRows     = [];   // full list for client-side filtering
+let _staffRows         = [];   // full list for client-side filtering
 
 async function loadDepartments() {
     if (_departmentsLoaded) return;
@@ -167,28 +169,22 @@ async function loadOfficesForSchedule() {
     } catch(e) { return []; }
 }
 
-async function loadPhysicians() {
-    loadDepartments();
-    try {
-        const r    = await fetch(`/api/admin/physicians?user_id=${user.id}`);
-        const rows = await r.json();
-        _physicianCache = {};
-        rows.forEach(p => { _physicianCache[p.physician_id] = p; });
-        document.getElementById("physicianListBody").innerHTML = rows.length
-            ? rows.map(p => {
-                const score = p.performance_score || 0;
-                const scoreColor = score >= 80 ? "#22c97a" : score >= 60 ? "#f5a623" : "#e05c5c";
-                const scoreLabel = score >= 80 ? "High Performer" : score >= 60 ? "Solid" : "Needs Attention";
-                const scoreBadge = p.total_appts > 0
-                    ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:6px;background:${scoreColor}22;border:1px solid ${scoreColor};color:${scoreColor};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">
-                          ${score}/100
-                          <span class="info-tip" style="line-height:1">
-                            <i class="tip-icon" style="background:${scoreColor}44;color:${scoreColor}">i</i>
-                            <span class="tip-text"><strong>${scoreLabel}</strong><br>Based on last 90 days:<br>• ${p.completed_appts} appointments completed<br>• ${p.no_show_appts} no-shows<br>• ${p.completion_rate}% show-up rate<br><br>Scores 80+ are protected from deletion.</span>
-                          </span>
-                       </span>`
-                    : `<span style="margin-left:6px;font-size:10px;color:#aaa">No data yet</span>`;
-                return `<tr>
+function _renderPhysicianRows(rows) {
+    document.getElementById("physicianListBody").innerHTML = rows.length
+        ? rows.map(p => {
+            const score = p.performance_score || 0;
+            const scoreColor = score >= 80 ? "#22c97a" : score >= 60 ? "#f5a623" : "#e05c5c";
+            const scoreLabel = score >= 80 ? "High Performer" : score >= 60 ? "Solid" : "Needs Attention";
+            const scoreBadge = p.total_appts > 0
+                ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:6px;background:${scoreColor}22;border:1px solid ${scoreColor};color:${scoreColor};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">
+                      ${score}/100
+                      <span class="info-tip" style="line-height:1">
+                        <i class="tip-icon" style="background:${scoreColor}44;color:${scoreColor}">i</i>
+                        <span class="tip-text"><strong>${scoreLabel}</strong><br>Based on last 90 days:<br>• ${p.completed_appts} appointments completed<br>• ${p.no_show_appts} no-shows<br>• ${p.completion_rate}% show-up rate<br><br>Scores 80+ are protected from deletion.</span>
+                      </span>
+                   </span>`
+                : `<span style="margin-left:6px;font-size:10px;color:#aaa">No data yet</span>`;
+            return `<tr>
                 <td class="primary" style="white-space:nowrap">Dr. ${p.first_name} ${p.last_name}${scoreBadge}</td>
                 <td>${p.specialty || "—"}</td>
                 <td style="text-transform:capitalize">${p.physician_type || "—"}</td>
@@ -205,7 +201,37 @@ async function loadPhysicians() {
                     </div>
                 </td>
             </tr>`;}).join("")
-            : `<tr><td colspan="8" class="table-empty">No physicians found</td></tr>`;
+        : `<tr><td colspan="8" class="table-empty">No physicians found</td></tr>`;
+}
+
+function filterPhysicians() {
+    const name   = (document.getElementById("phSearchInput")?.value  || "").toLowerCase();
+    const clinic = (document.getElementById("phClinicFilter")?.value || "");
+    const type   = (document.getElementById("phTypeFilter")?.value   || "");
+    const filtered = _physicianRows.filter(p =>
+        (!name   || `${p.first_name} ${p.last_name}`.toLowerCase().includes(name)) &&
+        (!clinic || p.clinic_name === clinic) &&
+        (!type   || p.physician_type === type)
+    );
+    _renderPhysicianRows(filtered);
+}
+
+async function loadPhysicians() {
+    loadDepartments();
+    try {
+        const r    = await fetch(`/api/admin/physicians?user_id=${user.id}`);
+        const rows = await r.json();
+        _physicianCache = {};
+        _physicianRows  = rows;
+        rows.forEach(p => { _physicianCache[p.physician_id] = p; });
+        // Populate clinic filter dropdown
+        const clinics = [...new Set(rows.map(p => p.clinic_name).filter(Boolean))].sort();
+        const sel = document.getElementById("phClinicFilter");
+        if (sel) {
+            sel.innerHTML = `<option value="">All Locations</option>` +
+                clinics.map(c => `<option value="${c}">${c}</option>`).join("");
+        }
+        _renderPhysicianRows(rows);
     } catch(e) {
         document.getElementById("physicianListBody").innerHTML = `<tr><td colspan="8" class="table-empty">Could not load data</td></tr>`;
     }
@@ -369,32 +395,56 @@ async function confirmDeletePhysician(id, name) {
 /* ══════════════════════════════════════
    STAFF
 ══════════════════════════════════════ */
+function _renderStaffRows(rows) {
+    document.getElementById("staffListBody").innerHTML = rows.length
+        ? rows.map(s => `<tr>
+            <td class="primary">${s.first_name} ${s.last_name}</td>
+            <td>${s.role || "—"}</td>
+            <td>${s.department_name || "—"}</td>
+            <td>${s.clinic_name || "—"}</td>
+            <td>${s.email || "—"}</td>
+            <td>${s.shift_start ? timeFmt(s.shift_start) + " – " + timeFmt(s.shift_end) : "—"}</td>
+            <td>${fmt(s.hire_date)}</td>
+            <td>
+                <div style="display:flex;gap:6px">
+                    <button onclick="openEditStaffModal(${s.staff_id})"
+                        style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
+                    <button onclick="confirmDeleteStaff(${s.staff_id},'${s.first_name} ${s.last_name}')"
+                        style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
+                </div>
+            </td>
+        </tr>`).join("")
+        : `<tr><td colspan="8" class="table-empty">No staff members found</td></tr>`;
+}
+
+function filterStaff() {
+    const name   = (document.getElementById("stSearchInput")?.value  || "").toLowerCase();
+    const clinic = (document.getElementById("stClinicFilter")?.value || "");
+    const role   = (document.getElementById("stRoleFilter")?.value   || "");
+    const filtered = _staffRows.filter(s =>
+        (!name   || `${s.first_name} ${s.last_name}`.toLowerCase().includes(name)) &&
+        (!clinic || s.clinic_name === clinic) &&
+        (!role   || s.role === role)
+    );
+    _renderStaffRows(filtered);
+}
+
 async function loadStaff() {
     loadDepartments();
     try {
         const r    = await fetch(`/api/admin/staff-members?user_id=${user.id}`);
         const rows = await r.json();
         _staffCache = {};
+        _staffRows  = rows;
         rows.forEach(s => { _staffCache[s.staff_id] = s; });
-        document.getElementById("staffListBody").innerHTML = rows.length
-            ? rows.map(s => `<tr>
-                <td class="primary">${s.first_name} ${s.last_name}</td>
-                <td>${s.role || "—"}</td>
-                <td>${s.department_name || "—"}</td>
-                <td>${s.clinic_name || "—"}</td>
-                <td>${s.email || "—"}</td>
-                <td>${s.shift_start ? timeFmt(s.shift_start) + " – " + timeFmt(s.shift_end) : "—"}</td>
-                <td>${fmt(s.hire_date)}</td>
-                <td>
-                    <div style="display:flex;gap:6px">
-                        <button onclick="openEditStaffModal(${s.staff_id})"
-                            style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
-                        <button onclick="confirmDeleteStaff(${s.staff_id},'${s.first_name} ${s.last_name}')"
-                            style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
-                    </div>
-                </td>
-            </tr>`).join("")
-            : `<tr><td colspan="8" class="table-empty">No staff members found</td></tr>`;
+        // Populate clinic filter dropdown
+        const clinics = [...new Set(rows.map(s => s.clinic_name).filter(Boolean))].sort();
+        const sel = document.getElementById("stClinicFilter");
+        if (sel) {
+            sel.innerHTML = `<option value="">All Locations</option>` +
+                clinics.map(c => `<option value="${c}">${c}</option>`).join("");
+        }
+        _renderStaffRows(rows);
     } catch(e) {
         document.getElementById("staffListBody").innerHTML = `<tr><td colspan="8" class="table-empty">Could not load data</td></tr>`;
     }
@@ -1513,21 +1563,42 @@ async function renderAnaStaffing() {
                           scales:{ x:{ticks:{font:{size:10}}}, y:{beginAtZero:true,ticks:{stepSize:1}} } }
             });
         }
-        // Chart: Appt status this month from report rows
-        const totals = { Completed:0, Scheduled:0, Cancelled:0, "No-Show":0 };
-        report.forEach(row => {
-            if (row.completed  != null) totals.Completed  += parseInt(row.completed)  || 0;
-            if (row.scheduled  != null) totals.Scheduled  += parseInt(row.scheduled)  || 0;
-            if (row.cancelled  != null) totals.Cancelled  += parseInt(row.cancelled)  || 0;
-            if (row.no_shows   != null) totals["No-Show"] += parseInt(row.no_shows)   || 0;
+        // Chart: Patients per staff member by clinic location
+        // Builds a ratio per clinic from the clinic report data + staff list
+        const clinicReport = Array.isArray(report) ? report : (report.clinics || []);
+        const staffByClinic = {};
+        staffList.forEach(s => {
+            const loc = s.clinic_name || "Unknown";
+            staffByClinic[loc] = (staffByClinic[loc] || 0) + 1;
         });
-        _dAna("anaApptChart");
-        const ac = document.getElementById("anaApptChart"); if (ac) {
-            _anaCharts.anaApptChart = new Chart(ac, {
-                type:"doughnut",
-                data:{ labels:Object.keys(totals), datasets:[{ data:Object.values(totals),
-                    backgroundColor:["#0d7a60","#4a90d9","#e05c5c","#f0a43b"], borderWidth:0 }]},
-                options:{ responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11}}}} }
+        const patientsByClinic = {};
+        clinicReport.forEach(row => {
+            const loc = row.clinic_name || "Unknown";
+            // Use appointment-based unique patient count as proxy
+            patientsByClinic[loc] = parseInt(row.total_appointments) || 0;
+        });
+        const ratioLocs = [...new Set([...Object.keys(staffByClinic), ...Object.keys(patientsByClinic)])].sort();
+        const ratioData = ratioLocs.map(loc => {
+            const s = staffByClinic[loc] || 1;
+            const p = patientsByClinic[loc] || 0;
+            return Math.round(p / s * 10) / 10;
+        });
+        _dAna("anaStaffRatioChart");
+        const arc = document.getElementById("anaStaffRatioChart"); if (arc) {
+            _anaCharts.anaStaffRatioChart = new Chart(arc, {
+                type:"bar",
+                data:{ labels:ratioLocs, datasets:[{
+                    label:"Visits per Staff Member",
+                    data:ratioData,
+                    backgroundColor: ratioData.map(v => v > 50 ? "#e05c5c" : "#4a90d9"),
+                    borderRadius:4
+                }]},
+                options:{ responsive:true,
+                    plugins:{ legend:{ display:false },
+                        annotation:{ annotations:[{ type:"line", yMin:50, yMax:50, borderColor:"#e05c5c", borderWidth:2, borderDash:[5,5], label:{ content:"Max recommended (50)", enabled:true } }] }
+                    },
+                    scales:{ x:{ticks:{font:{size:10}}}, y:{beginAtZero:true, title:{display:true,text:"Visits / Staff"}} }
+                }
             });
         }
     } catch(e) { console.error("analytics staffing:", e); }
