@@ -174,4 +174,80 @@ const getPhysicianActivity = (req, res) => {
     });
 };
 
-module.exports = { getBillingStatement, getDailySchedule, getPhysicianActivity };
+/* ─────────────────────────────────────────────
+   Report 4: Missed / Cancelled Appointments
+   GET /api/reports/missed-cancelled?start_date=&end_date=&user_id=
+───────────────────────────────────────────── */
+const getMissedCancelledReport = (req, res) => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    const { start_date = today, end_date = today } = req.query;
+
+    const sql = `
+        SELECT
+          a.appointment_id,
+          a.appointment_date,
+          a.appointment_time,
+          CONCAT(pt.first_name, ' ', pt.last_name)  AS patient_name,
+          pt.phone_number                            AS patient_phone,
+          CONCAT(ph.first_name, ' ', ph.last_name)  AS physician_name,
+          ph.specialty,
+          a.appointment_type,
+          s.status_name,
+          o.city,
+          c.clinic_name
+        FROM appointment a
+        JOIN patient pt              ON a.patient_id   = pt.patient_id
+        JOIN physician ph             ON a.physician_id  = ph.physician_id
+        JOIN appointment_status s     ON a.status_id     = s.status_id
+        JOIN office o                 ON a.office_id     = o.office_id
+        JOIN clinic c                 ON o.clinic_id     = c.clinic_id
+        WHERE s.status_name IN ('No-Show', 'Cancelled')
+          AND a.appointment_date BETWEEN ? AND ?
+        ORDER BY a.appointment_date DESC, a.appointment_time`;
+
+    db.query(sql, [start_date, end_date], (err, rows) => {
+        if (err) return res.status(500).json({ message: "Query failed" });
+        const noShows   = rows.filter(r => r.status_name === 'No-Show').length;
+        const cancelled = rows.filter(r => r.status_name === 'Cancelled').length;
+        res.json({ summary: { total: rows.length, noShows, cancelled }, appointments: rows });
+    });
+};
+
+/* ─────────────────────────────────────────────
+   Report 5: Upcoming Appointments
+   GET /api/reports/upcoming?days=30&user_id=
+───────────────────────────────────────────── */
+const getUpcomingAppointments = (req, res) => {
+    const days = Math.min(parseInt(req.query.days) || 30, 90);
+
+    const sql = `
+        SELECT
+          a.appointment_id,
+          a.appointment_date,
+          a.appointment_time,
+          CONCAT(pt.first_name, ' ', pt.last_name)  AS patient_name,
+          pt.phone_number                            AS patient_phone,
+          CONCAT(ph.first_name, ' ', ph.last_name)  AS physician_name,
+          ph.specialty,
+          a.appointment_type,
+          a.reason_for_visit,
+          o.city,
+          c.clinic_name
+        FROM appointment a
+        JOIN patient pt              ON a.patient_id   = pt.patient_id
+        JOIN physician ph             ON a.physician_id  = ph.physician_id
+        JOIN appointment_status s     ON a.status_id     = s.status_id
+        JOIN office o                 ON a.office_id     = o.office_id
+        JOIN clinic c                 ON o.clinic_id     = c.clinic_id
+        WHERE s.status_name = 'Scheduled'
+          AND a.appointment_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+        ORDER BY a.appointment_date ASC, a.appointment_time`;
+
+    db.query(sql, [days], (err, rows) => {
+        if (err) return res.status(500).json({ message: "Query failed" });
+        res.json({ days, total: rows.length, appointments: rows });
+    });
+};
+
+module.exports = { getBillingStatement, getDailySchedule, getPhysicianActivity, getMissedCancelledReport, getUpcomingAppointments };

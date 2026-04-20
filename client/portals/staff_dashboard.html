@@ -33,6 +33,10 @@
         html[data-theme="dark"] .schedule-card           { background: #1a1028; border-left-color: #9e6afe; }
         html[data-theme="dark"] .schedule-card .day      { color: #b48cff; }
 
+        /* Report tabs */
+        .report-tab { background:none; border:none; border-bottom:2px solid transparent; padding:10px 20px; font-size:13px; color:#888; cursor:pointer; font-family:inherit; font-weight:600; transition:color 0.15s,border-color 0.15s; }
+        .report-tab.active { color:#4a2c8a; border-bottom-color:#9e6afe; }
+
         /* Settings panel */
         .settings-tab { background:none; border:none; border-bottom:2px solid transparent; padding:10px 20px; font-size:13px; color:#888; cursor:pointer; font-family:inherit; font-weight:600; transition:color 0.15s,border-color 0.15s; }
         .settings-tab.active { color:#3a1a6d; border-bottom-color:#9e6afe; }
@@ -210,19 +214,95 @@
 <div class="page-section hidden" id="sec-reports">
     <div class="section-block">
         <div class="section-block-header">
-            <div><h3>Reports</h3><p>Daily schedule and billing summary</p></div>
-            <button class="profile-edit-btn" onclick="loadDailySchedule()">Daily Schedule Report</button>
+            <div><h3>Appointment Reports</h3><p>Scheduling and tracking reports</p></div>
         </div>
-        <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
-            <div style="background:#f5f3ff;border-radius:10px;padding:16px 20px">
-                <div style="font-size:13px;font-weight:700;color:#4a2c8a;margin-bottom:8px">Daily Appointments</div>
-                <div style="font-size:13px;color:#555;font-weight:300">Click "Daily Schedule Report" to view today's full appointment schedule filtered by date and location.</div>
+
+        <!-- Report tab nav -->
+        <div style="display:flex;gap:0;border-bottom:1px solid #eef2ff;padding:0 24px">
+            <button class="report-tab active" onclick="showReportTab('daily',this)"><i class="fa-solid fa-calendar-day" style="margin-right:6px"></i>Daily Schedule</button>
+            <button class="report-tab" onclick="showReportTab('missed',this)"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>Missed / Cancelled</button>
+            <button class="report-tab" onclick="showReportTab('upcoming',this)"><i class="fa-solid fa-clock" style="margin-right:6px"></i>Upcoming</button>
+        </div>
+
+        <!-- Tab: Daily Schedule -->
+        <div id="rcontent-daily" style="padding:24px;display:flex;flex-direction:column;gap:16px">
+            <div style="background:#f5f3ff;border:1px solid #e0d9ff;border-radius:10px;padding:14px 18px;font-size:13px;color:#5b21b6;line-height:1.6">
+                View all appointments for any date — includes patient, doctor, type, and current status.
             </div>
-            <div style="background:#f0fdf4;border-radius:10px;padding:16px 20px">
-                <div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:8px">Billing Summary</div>
-                <div style="font-size:13px;color:#555;font-weight:300">Go to the Billing tab to view outstanding payments and revenue summary.</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Date</label>
+                    <input type="date" id="rpt_daily_date" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit">
+                </div>
+                <div style="align-self:flex-end">
+                    <button onclick="runDailyReport()" style="padding:9px 20px;background:#4a2c8a;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">Run Report</button>
+                </div>
+            </div>
+            <div id="rpt_daily_stats" style="display:none;display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
+            <div id="rpt_daily_table" style="display:none;overflow-x:auto">
+                <table class="data-table">
+                    <thead><tr><th>Time</th><th>Patient</th><th>Physician</th><th>Specialty</th><th>Type</th><th>Reason</th><th>Location</th><th>Status</th></tr></thead>
+                    <tbody id="rpt_daily_body"></tbody>
+                </table>
             </div>
         </div>
+
+        <!-- Tab: Missed / Cancelled -->
+        <div id="rcontent-missed" style="padding:24px;display:none;flex-direction:column;gap:16px">
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;font-size:13px;color:#92400e;line-height:1.6">
+                See who didn't show up or cancelled within a date range. Useful for spotting last-minute cancellations and following up with patients.
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">From</label>
+                    <input type="date" id="rpt_mc_start" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">To</label>
+                    <input type="date" id="rpt_mc_end" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit">
+                </div>
+                <div style="align-self:flex-end">
+                    <button onclick="runMissedCancelledReport()" style="padding:9px 20px;background:#d97706;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">Run Report</button>
+                </div>
+            </div>
+            <div id="rpt_mc_stats" style="display:none;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+            <div id="rpt_mc_table" style="display:none;overflow-x:auto">
+                <table class="data-table">
+                    <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Phone</th><th>Physician</th><th>Type</th><th>Location</th><th>Status</th></tr></thead>
+                    <tbody id="rpt_mc_body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab: Upcoming -->
+        <div id="rcontent-upcoming" style="padding:24px;display:none;flex-direction:column;gap:16px">
+            <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px 18px;font-size:13px;color:#065f46;line-height:1.6">
+                View all future scheduled appointments. Helps with staffing and resource planning.
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Look Ahead</label>
+                    <select id="rpt_up_days" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit">
+                        <option value="7">Next 7 days</option>
+                        <option value="14">Next 14 days</option>
+                        <option value="30" selected>Next 30 days</option>
+                        <option value="60">Next 60 days</option>
+                        <option value="90">Next 90 days</option>
+                    </select>
+                </div>
+                <div style="align-self:flex-end">
+                    <button onclick="runUpcomingReport()" style="padding:9px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">Run Report</button>
+                </div>
+            </div>
+            <div id="rpt_up_stats" style="display:none"></div>
+            <div id="rpt_up_table" style="display:none;overflow-x:auto">
+                <table class="data-table">
+                    <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Phone</th><th>Physician</th><th>Specialty</th><th>Type</th><th>Reason</th><th>Location</th></tr></thead>
+                    <tbody id="rpt_up_body"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 

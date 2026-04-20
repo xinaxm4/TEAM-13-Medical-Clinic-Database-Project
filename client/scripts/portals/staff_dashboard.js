@@ -33,7 +33,17 @@ function showSection(name) {
     if (sec) sec.classList.remove("hidden");
     const btn = document.querySelector(`.nav-item[onclick*="'${name}'"]`);
     if (btn) btn.classList.add("active");
-    const labels = { overview:"Dashboard", schedule:"Schedule & Booking", checkin:"Check In / Out", billing:"Billing & Payments", comms:"Communications", reports:"Reports", profile:"Staff Profile", settings:"Settings" };
+    const labels = { overview:"Dashboard", schedule:"Schedule & Booking", checkin:"Check In / Out", billing:"Billing & Payments", comms:"Communications", reports:"Appointment Reports", profile:"Staff Profile", settings:"Settings" };
+    if (name === "reports") {
+        showReportTab("daily", document.querySelector(".report-tab"));
+        const di = document.getElementById("rpt_daily_date");
+        if (di && !di.value) di.value = localDateStr(new Date());
+        const mc_s = document.getElementById("rpt_mc_start");
+        const mc_e = document.getElementById("rpt_mc_end");
+        const today = localDateStr(new Date());
+        if (mc_s && !mc_s.value) mc_s.value = today;
+        if (mc_e && !mc_e.value) mc_e.value = today;
+    }
     document.getElementById("currentSection").textContent = labels[name] || name;
 }
 
@@ -659,4 +669,145 @@ function showOnboardSuccess(data) {
 function closeOnboardSuccessModal() {
     document.getElementById("onboardSuccessModal").classList.add("hidden");
     document.body.style.overflow = "";
+}
+
+/* ── Appointment Reports ── */
+function showReportTab(tab, btn) {
+    ["daily","missed","upcoming"].forEach(t => {
+        document.getElementById(`rcontent-${t}`).style.display = "none";
+    });
+    document.querySelectorAll(".report-tab").forEach(b => b.classList.remove("active"));
+    document.getElementById(`rcontent-${tab}`).style.display = "flex";
+    if (btn) btn.classList.add("active");
+}
+
+function statBox(value, label, color) {
+    return `<div style="background:#f8faff;border:1px solid #e0e4f0;border-radius:10px;padding:14px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:${color}">${value}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:600">${label}</div>
+    </div>`;
+}
+
+async function runDailyReport() {
+    const dateInput = document.getElementById("rpt_daily_date");
+    if (!dateInput.value) {
+        const n = new Date();
+        dateInput.value = localDateStr(n);
+    }
+    const date = dateInput.value;
+
+    const statsEl = document.getElementById("rpt_daily_stats");
+    const tableEl = document.getElementById("rpt_daily_table");
+    const tbody   = document.getElementById("rpt_daily_body");
+    statsEl.style.display = "none";
+    tableEl.style.display = "block";
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Loading…</td></tr>`;
+
+    try {
+        const r = await fetch(`/api/reports/daily-schedule?date=${date}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+
+        const { summary, appointments } = data;
+        statsEl.innerHTML =
+            statBox(summary.total,     "Total",     "#4a2c8a") +
+            statBox(summary.scheduled, "Scheduled", "#6ea8fe") +
+            statBox(summary.completed, "Completed", "#10b981") +
+            statBox(summary.noShow,    "No-Shows",  "#f59e0b");
+        statsEl.style.display = "grid";
+
+        tbody.innerHTML = appointments.length
+            ? appointments.map(a => `<tr>
+                <td class="primary">${timeFmt(a.appointment_time)}</td>
+                <td>${a.patient_name}</td>
+                <td>${a.physician_name}</td>
+                <td style="color:#888;font-size:12px">${a.specialty}</td>
+                <td>${a.appointment_type || "—"}</td>
+                <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.reason_for_visit || "—"}</td>
+                <td>${a.city}</td>
+                <td>${pill(a.status_name)}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="8" class="table-empty">No appointments on this date</td></tr>`;
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Could not load report</td></tr>`;
+    }
+}
+
+async function runMissedCancelledReport() {
+    const n = new Date();
+    const today = localDateStr(n);
+    const startEl = document.getElementById("rpt_mc_start");
+    const endEl   = document.getElementById("rpt_mc_end");
+    if (!startEl.value) startEl.value = today;
+    if (!endEl.value)   endEl.value   = today;
+
+    const statsEl = document.getElementById("rpt_mc_stats");
+    const tableEl = document.getElementById("rpt_mc_table");
+    const tbody   = document.getElementById("rpt_mc_body");
+    statsEl.style.display = "none";
+    tableEl.style.display = "block";
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Loading…</td></tr>`;
+
+    try {
+        const r = await fetch(`/api/reports/missed-cancelled?start_date=${startEl.value}&end_date=${endEl.value}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+
+        const { summary, appointments } = data;
+        statsEl.innerHTML =
+            statBox(summary.total,     "Total",     "#d97706") +
+            statBox(summary.noShows,   "No-Shows",  "#ef4444") +
+            statBox(summary.cancelled, "Cancelled", "#9ca3af");
+        statsEl.style.display = "grid";
+
+        tbody.innerHTML = appointments.length
+            ? appointments.map(a => `<tr>
+                <td class="primary">${fmt(a.appointment_date)}</td>
+                <td>${timeFmt(a.appointment_time)}</td>
+                <td>${a.patient_name}</td>
+                <td style="color:#888;font-size:12px">${a.patient_phone || "—"}</td>
+                <td>${a.physician_name}</td>
+                <td>${a.appointment_type || "—"}</td>
+                <td>${a.city}</td>
+                <td>${pill(a.status_name)}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="8" class="table-empty">No missed or cancelled appointments in this range</td></tr>`;
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Could not load report</td></tr>`;
+    }
+}
+
+async function runUpcomingReport() {
+    const days  = document.getElementById("rpt_up_days").value;
+    const statsEl = document.getElementById("rpt_up_stats");
+    const tableEl = document.getElementById("rpt_up_table");
+    const tbody   = document.getElementById("rpt_up_body");
+    statsEl.style.display = "none";
+    tableEl.style.display = "block";
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading…</td></tr>`;
+
+    try {
+        const r = await fetch(`/api/reports/upcoming?days=${days}&user_id=${user.id}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+
+        statsEl.innerHTML = `<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px 18px;font-size:13px;color:#065f46;font-weight:600">${data.total} scheduled appointment${data.total !== 1 ? "s" : ""} in the next ${data.days} days</div>`;
+        statsEl.style.display = "block";
+
+        tbody.innerHTML = data.appointments.length
+            ? data.appointments.map(a => `<tr>
+                <td class="primary">${fmt(a.appointment_date)}</td>
+                <td>${timeFmt(a.appointment_time)}</td>
+                <td>${a.patient_name}</td>
+                <td style="color:#888;font-size:12px">${a.patient_phone || "—"}</td>
+                <td>${a.physician_name}</td>
+                <td style="color:#888;font-size:12px">${a.specialty}</td>
+                <td>${a.appointment_type || "—"}</td>
+                <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.reason_for_visit || "—"}</td>
+                <td>${a.city}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="9" class="table-empty">No upcoming appointments in this window</td></tr>`;
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Could not load report</td></tr>`;
+    }
 }
