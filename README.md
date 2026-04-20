@@ -1,8 +1,8 @@
 # Team 13 — Audit Trail Health
 
-A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators. Built with **Node.js / Express**, **vanilla HTML/CSS/JS**, and a **MySQL** database hosted on Railway.
+A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators.
 
-**Live URL:** https://team-13-medical-clinic-database-project-production.up.railway.app
+**Live URL:** [team-13-medical-clinic-database-project-production.up.railway.app](https://team-13-medical-clinic-database-project-production.up.railway.app)
 
 ---
 
@@ -13,27 +13,127 @@ A full-stack medical clinic management system with role-based portals for patien
 | `TinaT2` | Tina T. | Frontend, dashboards, CSS, project structure, API integration, deployment |
 | `MaxC` | Max C. | Backend auth, patient login/register, DB queries |
 | `Timi-A` | Timi A. | Database schema, seed data, triggers |
-| `main` | All | Stable merged branch — always deployable |
+| `main` | All | Stable merged branch |
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | Vanilla HTML, CSS, JavaScript (no framework) |
+|-------|------------|
+| Frontend | Vanilla HTML, CSS, JavaScript |
 | Backend | Node.js + Express |
-| Database | MySQL hosted on Railway |
-| DB Driver | mysql2 (connection pool, parameterized queries) |
-| Auth | bcryptjs password hashing, localStorage session |
-| Charts | Chart.js 4 via CDN (admin insurance analytics) |
-| Deployment | Railway (auto-deploys from `main` branch) |
+| Database | MySQL via `mysql2` connection pool |
+| Auth | `bcryptjs` password hashing |
+| Charts | Chart.js 4 via CDN |
+| Deployment | Railway (auto-deploy on push to `main`) |
+
+---
+
+## Features
+
+### Patient Portal
+- 3-step registration (no insurance required upfront)
+- View dashboard, upcoming and past appointments, billing, and referral status
+- Book and cancel appointments via a 4-step modal (physician → date → slot → reason)
+- Edit profile information
+- Assign primary physician and insurance plan (care setup)
+- View referrals issued by their primary physician
+
+### Physician Portal
+
+**Primary Physicians**
+- View daily schedule and full appointment history
+- Update appointment status (Completed, No-Show, Cancelled, Scheduled)
+- Undo the last status change
+- Add clinical notes to patient records after appointments
+- Delete their own notes
+- Create specialist referrals on behalf of patients
+- View 90-day physician activity report
+
+**Specialist Physicians**
+- View daily schedule and full appointment history
+- Update appointment status and undo changes
+- Add and delete clinical notes
+- View full referral history directed to them (all statuses)
+- Accept or reject incoming referrals from primary physicians
+
+### Staff Portal
+- Onboard new patients via a 3-step wizard (insurance verification → demographics → first appointment)
+- Book appointments for any patient
+- Patient check-in / check-out queue management
+- Mark billing records as paid with payment method and reference number
+- **Appointment Reports** (3 tabs):
+  - *Daily Schedule* — all appointments for any selected date with summary stats; auto-loads on tab open
+  - *Missed / Cancelled* — date-range report of no-shows and cancellations with patient phone numbers for follow-up
+  - *Upcoming* — 7 to 90-day lookahead of all scheduled appointments
+
+### Admin Portal
+- Dashboard summary statistics
+- Manage physicians: add, edit, delete
+- Manage staff: add, edit, delete; termination eligibility check enforces minimum staffing ratios
+- Clinic financial report grouped by location
+- Appointments report filtered by date and clinic
+- Insurance Analytics Dashboard:
+  - Composite payer scorecard (weighted formula across 5 dimensions)
+  - Grouped bar chart: contracted vs actual reimbursement %
+  - Donut chart: patient distribution by payer
+  - Horizontal bar: appointment completion rate by payer
+  - Alert banner for below-threshold claims
+  - Manage accepted insurance plans per clinic (add / deactivate); deactivation blocked if payer composite score ≥ 70
+
+---
+
+## Business Logic Rules
+
+| Rule | Where enforced |
+|------|---------------|
+| Referrals are created by the primary physician, not the patient | Physician portal only |
+| Specialist physicians cannot create new referrals | UI hidden based on `physician_type` |
+| Staff termination blocked if it would leave clinic understaffed | `min_staff = MAX(2, CEIL(patients / 10))` |
+| Insurance deactivation blocked if composite payer score ≥ 70 | Admin portal; backend check |
+| Billing auto-created when appointment is marked Completed | DB trigger |
+| No-show auto-logged to medical history | DB trigger |
+| Double-booking for same patient at same time blocked | DB trigger (BEFORE INSERT) |
+| Payer alert auto-generated when claim reimbursement falls below contracted % | DB trigger (AFTER INSERT on billing) |
+
+---
+
+## Demo Credentials
+
+### Patient Portal
+**Login URL:** `/client/auth/patient_login.html`
+
+| Email | Password |
+|-------|----------|
+| `alex.smith@email.com` | `Patient@123` |
+| `taylor.jones@email.com` | `Patient@123` |
+
+New patients can register at `/client/auth/register.html`.
+
+### Physician & Staff Portal
+**Login URL:** `/client/auth/staff_login.html`
+
+| Email | Password | Role | Location |
+|-------|----------|------|----------|
+| `johnson101@audittrailhealth.com` | `Doctor@123` | Physician (primary) | Dallas |
+| `moore103@audittrailhealth.com` | `Doctor@123` | Physician (primary) | Houston |
+| `garcia102@audittrailhealth.com` | `Doctor@123` | Physician (specialist) | Dallas |
+| `adams201@audittrailhealth.com` | `Staff@123` | Staff | Dallas |
+| `brooks202@audittrailhealth.com` | `Staff@123` | Staff | Houston |
+
+### Admin Portal
+**Login URL:** `/client/auth/staff_login.html`
+
+| Email | Password |
+|-------|----------|
+| `admin@ath.admin.com` | `Admin@123` |
 
 ---
 
 ## Local Setup
 
-### 1. Clone the repo
+### 1. Clone the repository
 ```bash
 git clone https://github.com/xinaxm4/TEAM-13-Medical-Clinic-Database-Project.git
 cd TEAM-13-Medical-Clinic-Database-Project
@@ -44,322 +144,26 @@ cd TEAM-13-Medical-Clinic-Database-Project
 npm install
 ```
 
-### 3. Create your `.env` file
-```bash
-cp .env.example .env
-```
+### 3. Configure environment variables
+Create a `.env` file in the project root:
 
-Fill in the credentials (get from a teammate — do not commit):
-```
-DB_HOST=caboose.proxy.rlwy.net
-DB_USER=root
-DB_PORT=55239
-DB_PASSWORD=<ask teammate>
-DB_NAME=railway
+```env
+DB_HOST=your-host
+DB_PORT=3306
+DB_USER=your-user
+DB_PASSWORD=your-password
+DB_NAME=team_13_medical_clinic_db
 PORT=3000
 ```
 
-> `.env` is gitignored and never committed. The database is shared on Railway — no local MySQL needed.
-
 ### 4. Start the server
 ```bash
-npm run dev     # nodemon auto-restart
-# or
-npm start       # plain node
+npm run dev    # nodemon auto-restart
+npm start      # plain node
 ```
 
-### 5. Open in browser
-```
-http://localhost:3000
-```
-
----
-
-## Demo Login Credentials
-
-### Patient Portal
-**URL:** `/auth/patient_login.html`
-
-| Email | Password |
-|-------|----------|
-| `alex.smith@email.com` | `Patient@123` |
-| `taylor.jones@email.com` | `Patient@123` |
-| `morgan.w@email.com` | `Patient@123` |
-| `jordan.brown@email.com` | `Patient@123` |
-| `casey.davis@email.com` | `Patient@123` |
-
-New patients can register at `/auth/register.html` (3-step flow — no insurance step at registration).
-
-### Physician & Staff Portal
-**URL:** `/auth/staff_login.html`
-
-| Username | Password | Role | Location |
-|----------|----------|------|----------|
-| `dr.johnson` | `Doctor@123` | Physician (primary) | Dallas |
-| `dr.moore` | `Doctor@123` | Physician (primary) | Houston |
-| `dr.davis` | `Doctor@123` | Physician (primary) | Austin |
-| `dr.garcia` | `Doctor@123` | Physician (specialist) | Dallas |
-| `dr.white` | `Doctor@123` | Physician (specialist) | Houston |
-| `dr.foster` | `Doctor@123` | Physician (specialist) | Austin |
-| `dr.allen` | `Doctor@123` | Physician (specialist, Cardiology) | Dallas |
-| `dr.vasquez` | `Doctor@123` | Physician (specialist, Cardiology) | New York |
-| `dr.huang` | `Doctor@123` | Physician (specialist, Oncology) | Houston |
-| `staff.adams` | `Staff@123` | Staff | Dallas |
-| `staff.brooks` | `Staff@123` | Staff | Houston |
-| `staff.taylor` | `Staff@123` | Staff | Austin |
-
-### Admin Portal
-**URL:** `/auth/staff_login.html` (same login, role `admin` redirects to admin dashboard)
-
-| Username | Password | Role |
-|----------|----------|------|
-| `admin` | `Admin@123` | Admin |
-
----
-
-## Pages & Portals
-
-### Public Pages
-| URL | Description |
-|-----|-------------|
-| `/` | Home page |
-| `/pages/about.html` | About the clinic |
-| `/pages/locations/locations.html` | All clinic locations |
-
-### Authentication
-| URL | Description |
-|-----|-------------|
-| `/auth/patient_login.html` | Patient login |
-| `/auth/register.html` | New patient registration (3 steps) |
-| `/auth/staff_login.html` | Physician, staff & admin login |
-
-### Dashboards (login required)
-| URL | Role | Features |
-|-----|------|---------|
-| `/portals/patient_dashboard.html` | Patient | Overview, book/cancel appointments, medical history, billing statement, referral tracking, profile edit |
-| `/portals/physician_dashboard.html` | Physician | Schedule, appointments (update status), patient notes, create & manage referrals, activity report |
-| `/portals/staff_dashboard.html` | Staff | Appointments, onboard patients, book for patients, billing queue (mark paid), daily schedule report with location filter |
-| `/portals/admin_dashboard.html` | Admin | Clinic overview, manage physicians/staff (add/edit/delete), appointments report by date & location, insurance analytics dashboard |
-
----
-
-## API Endpoints
-
-### Auth — `/api/auth`
-| Method | Route | Description |
-|--------|-------|-------------|
-| `POST` | `/api/auth/register` | Register a new patient |
-| `POST` | `/api/auth/login` | Patient portal login |
-| `GET` | `/api/auth/insurance-plans` | All insurance plans (public — used by registration & staff onboarding) |
-
-### Patient — `/api/patient`
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/patient/dashboard` | Full patient dashboard data |
-| `PUT` | `/api/patient/profile` | Update patient profile |
-| `GET` | `/api/patient/appointments` | Patient's appointments |
-| `GET` | `/api/patient/appointments/slots` | Available time slots for booking |
-| `POST` | `/api/patient/appointments/book` | Book a new appointment |
-| `PUT` | `/api/patient/appointments/:id/cancel` | Cancel an appointment |
-| `GET` | `/api/patient/care/cities` | City list for care team setup |
-| `GET` | `/api/patient/care/physicians` | Primary physicians by city |
-| `GET` | `/api/patient/care/insurance` | Insurance options (patient role only) |
-| `PUT` | `/api/patient/care/assign` | Assign physician + insurance |
-| `GET` | `/api/patient/referral/specialists` | Available specialists by city |
-| `POST` | `/api/patient/referral/request` | Request a specialist referral |
-
-### Staff & Physician — `/api/staff`
-| Method | Route | Description |
-|--------|-------|-------------|
-| `POST` | `/api/staff/login` | Physician or staff login |
-| `GET` | `/api/staff/physician/dashboard` | Physician dashboard data |
-| `GET` | `/api/staff/staff/dashboard` | Staff dashboard data |
-| `GET` | `/api/staff/all-schedules` | All physician schedules |
-| `GET` | `/api/staff/physician/referrals` | Incoming referrals for physician |
-| `PUT` | `/api/staff/referral/:id/status` | Accept or reject a referral |
-| `POST` | `/api/staff/physician/note` | Add clinical note to patient |
-| `PUT` | `/api/staff/appointment/:id/status` | Update appointment status |
-| `PUT` | `/api/staff/appointment/:id/undo-status` | Undo last appointment status change |
-| `DELETE` | `/api/staff/medical-history/:id` | Delete a medical history note |
-| `POST` | `/api/staff/appointments/book` | Staff books appointment for patient |
-| `PUT` | `/api/staff/billing/:id/pay` | Mark billing record as paid |
-| `GET` | `/api/staff/patients` | All patients list |
-| `GET` | `/api/staff/physicians` | All physicians list |
-| `POST` | `/api/staff/patients/onboard` | Onboard a new patient (creates user + patient + first appointment) |
-| `GET` | `/api/staff/physicians/accepting` | Physicians currently accepting new patients |
-| `GET` | `/api/staff/specialists` | All specialist physicians |
-| `POST` | `/api/staff/referral/create` | Physician creates a new referral (PCP-initiated) |
-
-### Admin — `/api/admin`
-| Method | Route | Description |
-|--------|-------|-------------|
-| `POST` | `/api/admin/login` | Admin login |
-| `GET` | `/api/admin/dashboard` | Admin overview stats |
-| `GET` | `/api/admin/clinic-report` | Clinic financial report (grouped by location) |
-| `GET` | `/api/admin/physicians` | All physicians |
-| `GET` | `/api/admin/staff-members` | All staff members |
-| `GET` | `/api/admin/departments` | All departments |
-| `GET` | `/api/admin/offices` | All offices |
-| `POST` | `/api/admin/add-physician` | Add a new physician |
-| `POST` | `/api/admin/add-staff` | Add a new staff member |
-| `PUT` | `/api/admin/physician/:id` | Edit physician details |
-| `DELETE` | `/api/admin/physician/:id` | Delete a physician |
-| `PUT` | `/api/admin/staff/:id` | Edit staff member details |
-| `DELETE` | `/api/admin/staff/:id` | Delete a staff member |
-| `GET` | `/api/admin/insurance/scorecard` | Payer performance scorecard (Charts A + B queries) |
-| `GET` | `/api/admin/insurance/payer-detail` | Single payer detail |
-| `GET` | `/api/admin/insurance/accepted` | Accepted insurance plans per clinic |
-| `POST` | `/api/admin/insurance/accept` | Add insurance plan to clinic |
-| `PUT` | `/api/admin/insurance/:id/deactivate` | Deactivate an accepted insurance plan |
-| `GET` | `/api/admin/insurance/alerts` | Unread payer alerts (below-threshold claims) |
-| `PUT` | `/api/admin/insurance/alerts/:id/read` | Mark alert as read |
-
-### Reports — `/api/reports`
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/reports/billing-statement` | Patient billing statement (`?patient_id=X`) |
-| `GET` | `/api/reports/daily-schedule` | Daily appointment schedule (`?date=YYYY-MM-DD&clinic_id=X`) — `clinic_id` optional |
-| `GET` | `/api/reports/physician-activity` | Physician 90-day activity report (`?physician_id=X`) |
-
-### Locations — `/api/locations`
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/locations` | All clinic offices |
-
----
-
-## Database
-
-Fully hosted on Railway — all team members connect to the same live instance.
-
-### Current Data
-
-| Table | Records |
-|-------|---------|
-| `clinic` | 8 (Dallas, Houston, Austin, New York, Chicago, Los Angeles, Phoenix, Seattle) |
-| `department` | 46 |
-| `office` | 8 (one per city) |
-| `physician` | 65 (38 primary, 27 specialist) |
-| `work_schedule` | 138 |
-| `insurance` | 12 providers |
-| `staff` | 8 (one per city) |
-| `users` | 78+ |
-| `patient` | 5 |
-| `appointment` | 12 (includes today's appointments for demo) |
-| `medical_history` | 6 |
-| `diagnosis` | 3 |
-| `treatment` | 3 |
-| `billing` | 5 |
-| `referral` | 2 |
-| `clinic_accepted_insurance` | 7 (seeded contractual terms per clinic) |
-| `payer_alert` | auto-populated by trigger |
-
-### Specialist Coverage by City
-
-| City | Specialties Available |
-|------|-----------------------|
-| **New York** | Cardiology, Gastroenterology, Neurology, Oncology, Rheumatology |
-| **Los Angeles** | Dermatology, Endocrinology, Rheumatology, Orthopedics, Urology |
-| **Dallas** | Cardiology, Dermatology, Orthopedics |
-| **Houston** | Cardiology, Oncology, Gastroenterology |
-| **Chicago** | Cardiology, Pulmonology, Gastroenterology, Dermatology |
-| **Austin** | Neurology, Geriatrics |
-| **Phoenix** | Neurology, Endocrinology, Pulmonology |
-| **Seattle** | Pulmonology, Oncology, Neurology |
-
-> Patients requiring rare specialties not available at their local clinic are referred and may need to travel to a hub city.
-
-### Key Tables
-
-| Table | Description |
-|-------|-------------|
-| `users` | Login credentials. `role` (`patient`/`physician`/`staff`/`admin`) controls portal access |
-| `patient` | Demographics, primary physician, insurance |
-| `physician` | Doctor info, specialty, `physician_type` (primary/specialist) |
-| `staff` | Non-physician staff with role and department |
-| `appointment` | Visits linking patient, physician, office, and status |
-| `work_schedule` | Physician availability per office per day |
-| `referral` | Specialist referrals — PCP → specialist flow with status tracking |
-| `medical_history` | Long-term conditions and physician notes per patient |
-| `diagnosis` | ICD-10 coded diagnoses linked to appointments |
-| `treatment` | Treatment plans, medications, follow-up dates |
-| `billing` | Payment records — auto-created by trigger on appointment completion |
-| `clinic_accepted_insurance` | Which insurance plans each clinic accepts, with contracted reimbursement thresholds |
-| `payer_alert` | Auto-populated by trigger when a claim falls below contracted reimbursement % |
-| `audit_log` | HIPAA audit trail for data access |
-
-### Referral Status Flow
-```
-Requested → Issued → Accepted → Scheduled → Completed
-                   ↘ Rejected
-                   ↘ Expired
-```
-
----
-
-## Database Triggers
-
-4 triggers are live in the Railway database:
-
-| Trigger | Event | Table | Purpose |
-|---------|-------|-------|---------|
-| `after_appointment_completed` | `AFTER UPDATE` | `appointment` | Auto-creates billing record with insurance math when appointment marked Completed |
-| `after_appointment_noshow` | `AFTER UPDATE` | `appointment` | Auto-logs a No-Show entry to patient's medical history |
-| `before_appointment_double_book` | `BEFORE INSERT` | `appointment` | Blocks a patient from booking two appointments at the same date and time |
-| `after_billing_insert_check_threshold` | `AFTER INSERT` | `billing` | Inserts a `payer_alert` row if claim reimbursement % falls below the clinic's contracted threshold for that payer |
-
-To re-run triggers: `database/triggers.sql` — run in MySQL Workbench (do not use Railway query editor for multi-statement triggers).
-
----
-
-## SQL Queries
-
-3 parameterized queries in `database/queries.sql` (used by report endpoints):
-
-| Query | Description |
-|-------|-------------|
-| Patient Billing Statement | 5-table join — per-appointment breakdown with insurance coverage, billed amount, insurance paid, and patient balance |
-| Daily Appointment Schedule | All appointments for a given date across all offices, with optional `clinic_id` filter |
-| Physician Activity Report | 90-day window — completion rate, revenue, no-shows via `CASE WHEN` conditional aggregation |
-
----
-
-## Data Entry Forms (Professor Requirements)
-
-| Portal | Add | Modify | Delete |
-|--------|-----|--------|--------|
-| Patient | Book appointment (4-step modal) | Edit profile | Cancel appointment |
-| Physician | Add clinical note, create referral | Update appointment status, accept/reject referral | Delete own medical history note |
-| Staff | Onboard new patient, create appointment for any patient | Mark billing as paid, update appointment status | Cancel appointment |
-| Admin | Add physician, add staff member, add insurance plan to clinic | Edit physician, edit staff member | Delete physician, delete staff member, deactivate insurance plan |
-
----
-
-## Database Migrations
-
-Idempotent migration files (safe to re-run — use `INSERT IGNORE`):
-
-| File | Purpose |
-|------|---------|
-| `database/triggers.sql` | All 4 triggers — run in MySQL Workbench |
-| `database/queries.sql` | Reference SQL for the 3 report queries |
-| `database/add_today_appointments.sql` | Adds 4 appointments for today's date (demo data) |
-| `database/add_insurance_plans.sql` | Expands insurance from 5 → 12 providers |
-| `database/add_admin.sql` | Adds admin department / office rows |
-| `database/add_admin_user.sql` | Adds admin user account |
-
----
-
-## Access Control
-
-| Role | Login Page | Blocked From |
-|------|-----------|--------------|
-| `patient` | `/auth/patient_login.html` | Staff, physician & admin portals |
-| `physician` | `/auth/staff_login.html` | Patient & admin portals |
-| `staff` | `/auth/staff_login.html` | Patient & admin portals |
-| `admin` | `/auth/staff_login.html` | Patient portal |
-
-Role enforced at both frontend redirect and server-side `requireRole()` middleware on every API route.
+### 5. Open the app
+Visit [http://localhost:3000](http://localhost:3000)
 
 ---
 
@@ -367,75 +171,194 @@ Role enforced at both frontend redirect and server-side `requireRole()` middlewa
 
 ```
 TEAM-13-Medical-Clinic-Database-Project/
-│
-├── server.js                        # Express app entry point
-├── .env                             # DB credentials (gitignored)
-├── .env.example
+├── server.js                        ← Express entry point
+├── .env                             ← DB credentials (never commit)
 ├── railway.toml
 ├── package.json
 │
-├── server/
-│   ├── db.js                        # MySQL connection pool
-│   ├── middleware/
-│   │   └── auth.js                  # requireRole() middleware
-│   ├── controllers/
-│   │   ├── authController.js
-│   │   ├── patientController.js
-│   │   ├── staffController.js
-│   │   ├── adminController.js       # Admin CRUD + insurance analytics
-│   │   ├── reportController.js
-│   │   └── locationsController.js
-│   └── routes/
-│       ├── authRoutes.js
-│       ├── patientRoutes.js
-│       ├── staffRoutes.js
-│       ├── adminRoutes.js
-│       ├── reportRoutes.js
-│       └── locationsRoutes.js
-│
 ├── client/
-│   ├── pages/
-│   │   ├── home_page.html
-│   │   ├── about.html
-│   │   └── locations/locations.html
-│   ├── auth/
-│   │   ├── patient_login.html
-│   │   ├── staff_login.html
-│   │   └── register.html            # 3-step registration (no insurance step)
-│   ├── portals/
-│   │   ├── patient_dashboard.html
-│   │   ├── physician_dashboard.html
-│   │   ├── staff_dashboard.html
-│   │   └── admin_dashboard.html     # Insurance analytics + staff/physician CRUD
+│   ├── pages/                       ← Home, About, Locations
+│   ├── auth/                        ← Login and registration pages
+│   ├── portals/                     ← Role dashboards (HTML)
 │   ├── scripts/
-│   │   ├── auth/
-│   │   └── portals/
-│   └── styles/
-│       ├── dashboard.css
-│       ├── auth/
-│       └── pages/
+│   │   ├── auth/                    ← Login/register JS
+│   │   └── portals/                 ← Dashboard JS per role
+│   └── styles/                      ← dashboard.css + auth styles
 │
-├── database/
-│   ├── Team_13_Medical_Clinic_DB.sql  # Full schema (CREATE TABLE)
-│   ├── seed.sql                       # All seed data (INSERT IGNORE — safe to re-run)
-│   ├── triggers.sql                   # All 4 triggers (run in MySQL Workbench)
-│   ├── queries.sql                    # Reference SQL for the 3 report queries
-│   ├── add_today_appointments.sql     # Railway migration: 4 appointments for today
-│   ├── add_insurance_plans.sql        # Railway migration: expand to 12 insurance providers
-│   ├── add_admin.sql                  # Railway migration: admin dept/office rows
-│   ├── add_admin_user.sql             # Railway migration: admin user account
-│   └── backups/                       # Auto-timestamped backups (gitignored)
+├── server/
+│   ├── db.js                        ← mysql2 pool
+│   ├── middleware/auth.js           ← requireRole() middleware
+│   └── controllers/
+│       ├── authController.js
+│       ├── patientController.js
+│       ├── staffController.js       ← Physician + staff logic
+│       ├── adminController.js       ← CRUD + insurance analytics
+│       ├── reportController.js      ← 5 report queries
+│       └── locationsController.js
 │
-└── images/
+├── server/routes/
+│   ├── authRoutes.js
+│   ├── patientRoutes.js
+│   ├── staffRoutes.js
+│   ├── adminRoutes.js
+│   ├── reportRoutes.js
+│   └── locationsRoutes.js
+│
+└── database/
+    ├── Team_13_Medical_Clinic_DB.sql         ← Full schema
+    ├── seed.sql                              ← Core seed data
+    ├── triggers.sql                          ← All 4 triggers
+    ├── queries.sql                           ← Reference SQL
+    ├── add_today_appointments.sql            ← Demo appointments
+    ├── add_insurance_plans.sql               ← Expanded payer list
+    ├── add_admin.sql                         ← Admin clinic rows
+    ├── add_admin_user.sql                    ← Admin login
+    ├── update_demo_appointment_dates.sql     ← Re-date demo appts to CURDATE()
+    └── admin_analytics_trigger_migration.sql ← Insurance analytics tables
 ```
 
 ---
 
-## Security Notes
+## API Routes
 
-- Passwords hashed with **bcryptjs** (10 salt rounds) — no plain text ever stored
-- All queries use parameterized `?` placeholders — protected against SQL injection
-- Role-based middleware on every API route
-- Sessions stored in `localStorage` — role checked on every page load
-- `.env` credentials never committed to source control
-- Insurance plan endpoint (`/api/auth/insurance-plans`) is intentionally public — used by both patient registration and staff onboarding (staff role would be blocked by patient-only endpoints)
+### Auth
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/auth/register` | Create user and patient records |
+| `POST` | `/api/auth/login` | Patient login |
+| `GET` | `/api/auth/insurance-plans` | Public — used by registration and staff onboarding |
+
+### Patient
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/patient/dashboard` | Full patient dashboard data |
+| `PUT` | `/api/patient/profile` | Update profile |
+| `GET` | `/api/patient/appointments` | List appointments |
+| `GET` | `/api/patient/appointments/slots` | Available time slots |
+| `POST` | `/api/patient/appointments/book` | Book appointment |
+| `PUT` | `/api/patient/appointments/:id/cancel` | Cancel appointment |
+| `GET` | `/api/patient/care/cities` | City list |
+| `GET` | `/api/patient/care/physicians` | Physicians by city |
+| `GET` | `/api/patient/care/insurance` | Insurance plans (patient role) |
+| `PUT` | `/api/patient/care/assign` | Assign physician and insurance |
+
+### Staff & Physician
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/staff/login` | Physician or staff login |
+| `GET` | `/api/staff/physician/dashboard` | Physician dashboard data |
+| `GET` | `/api/staff/staff/dashboard` | Staff dashboard data |
+| `GET` | `/api/staff/all-schedules` | All physician schedules |
+| `GET` | `/api/staff/physician/referrals` | Incoming referrals for a specialist |
+| `PUT` | `/api/staff/referral/:id/status` | Accept or reject referral |
+| `POST` | `/api/staff/referral/create` | Primary physician creates referral |
+| `POST` | `/api/staff/physician/note` | Add clinical note |
+| `PUT` | `/api/staff/appointment/:id/status` | Update appointment status |
+| `PUT` | `/api/staff/appointment/:id/undo-status` | Undo last status change |
+| `DELETE` | `/api/staff/medical-history/:id` | Delete medical history note |
+| `GET` | `/api/staff/patients` | All patients |
+| `GET` | `/api/staff/physicians` | All physicians |
+| `GET` | `/api/staff/physicians/accepting` | Physicians accepting new patients |
+| `GET` | `/api/staff/specialists` | All specialist physicians |
+| `POST` | `/api/staff/appointments/book` | Staff books appointment |
+| `POST` | `/api/staff/patients/onboard` | Onboard new patient |
+| `PUT` | `/api/staff/billing/:id/pay` | Mark billing record paid |
+
+### Admin
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/admin/login` | Admin login |
+| `GET` | `/api/admin/dashboard` | Admin overview stats |
+| `GET` | `/api/admin/clinic-report` | Financial report by clinic |
+| `GET` | `/api/admin/physicians` | All physicians |
+| `GET` | `/api/admin/staff-members` | All staff |
+| `GET` | `/api/admin/departments` | All departments |
+| `GET` | `/api/admin/offices` | All offices |
+| `POST` | `/api/admin/add-physician` | Add physician |
+| `POST` | `/api/admin/add-staff` | Add staff member |
+| `PUT` | `/api/admin/physician/:id` | Edit physician |
+| `DELETE` | `/api/admin/physician/:id` | Delete physician |
+| `PUT` | `/api/admin/staff/:id` | Edit staff member |
+| `DELETE` | `/api/admin/staff/:id` | Delete staff member |
+| `GET` | `/api/admin/staff/:id/termination-check` | Check termination eligibility |
+| `DELETE` | `/api/admin/staff/:id/terminate` | Terminate staff member |
+| `GET` | `/api/admin/insurance/scorecard` | Payer composite scorecard |
+| `GET` | `/api/admin/insurance/payer-detail` | Single payer breakdown |
+| `GET` | `/api/admin/insurance/accepted` | Accepted plans per clinic |
+| `POST` | `/api/admin/insurance/accept` | Add insurance plan to clinic |
+| `PUT` | `/api/admin/insurance/:id/deactivate` | Deactivate plan (score-gated) |
+| `GET` | `/api/admin/insurance/alerts` | Unread payer alerts |
+| `PUT` | `/api/admin/insurance/alerts/:id/read` | Mark alert read |
+
+### Reports
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/reports/billing-statement` | Patient billing statement |
+| `GET` | `/api/reports/daily-schedule` | Daily schedule by date and clinic |
+| `GET` | `/api/reports/physician-activity` | Physician 90-day activity report |
+| `GET` | `/api/reports/missed-cancelled` | No-shows and cancellations by date range |
+| `GET` | `/api/reports/upcoming` | Upcoming scheduled appointments (7–90 day window) |
+
+---
+
+## Database
+
+### Table Summary
+
+| Table | Rows | Notes |
+|-------|------|-------|
+| `clinic` | 8 | Dallas, Houston, Austin, New York, Chicago, LA, Phoenix, Seattle |
+| `department` | 46 | |
+| `office` | 8 | One per city |
+| `physician` | 65 | 38 primary, 27 specialist; `physician_type` column |
+| `work_schedule` | 138 | |
+| `insurance` | 12 | Expanded payer list |
+| `staff` | 8 | |
+| `users` | 78+ | All bcrypt hashed |
+| `patient` | 5 | Demo accounts |
+| `appointment` | 12 | Includes 4 demo appointments for today |
+| `medical_history` | 6 | |
+| `billing` | 5 | Auto-generated by trigger |
+| `referral` | 2+ | Physician-initiated |
+| `clinic_accepted_insurance` | 7 | Contract terms per clinic |
+| `payer_alert` | auto | Trigger-populated |
+| `audit_log` | auto | Action audit trail |
+
+### Triggers
+
+| Trigger | Event | Purpose |
+|---------|-------|---------|
+| `after_appointment_completed` | `AFTER UPDATE` on `appointment` | Auto-creates billing with insurance math |
+| `after_appointment_noshow` | `AFTER UPDATE` on `appointment` | Auto-logs no-show to medical history |
+| `before_appointment_double_book` | `BEFORE INSERT` on `appointment` | Blocks same-patient double-booking |
+| `after_billing_insert_check_threshold` | `AFTER INSERT` on `billing` | Fires payer alert if reimbursement falls below contracted % |
+
+### Setup Order (fresh database)
+
+Run these SQL files in order on your MySQL instance. Use MySQL Workbench for `triggers.sql` (multi-statement syntax not supported in Railway's query editor).
+
+1. `database/Team_13_Medical_Clinic_DB.sql` — schema
+2. `database/seed.sql` — core seed data
+3. `database/triggers.sql` — 4 triggers *(MySQL Workbench only)*
+4. `database/add_today_appointments.sql` — demo appointments
+5. `database/add_insurance_plans.sql` — expanded payer list
+6. `database/add_admin.sql` — admin clinic rows
+7. `database/add_admin_user.sql` — admin login
+8. `database/admin_analytics_trigger_migration.sql` — insurance analytics tables
+
+**To refresh demo appointment dates** (run whenever demo data falls behind today's date):
+```sql
+-- database/update_demo_appointment_dates.sql
+UPDATE appointment SET appointment_date = CURDATE() WHERE appointment_id IN (9, 10, 11, 12);
+```
+
+---
+
+## Security
+
+- Passwords hashed with `bcryptjs` (never stored in plain text)
+- All SQL queries use parameterized placeholders (no string concatenation)
+- Role-based access enforced server-side via `requireRole()` middleware
+- HIPAA-style idle auto-logout after 15 minutes of inactivity on all portals
+- `.env` is gitignored — credentials never committed
+- `/api/auth/insurance-plans` is intentionally public for registration and staff onboarding flows
