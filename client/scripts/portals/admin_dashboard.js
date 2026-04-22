@@ -173,9 +173,11 @@ async function loadOverview() {
         const data = await res.json();
         if (!res.ok) { document.getElementById("greetSub").textContent = data.message || "Could not load data."; return; }
 
-        const { stats, clinics, recentAppts } = data;
-        _overviewClinics = clinics || [];
-        _overviewAppts   = recentAppts || [];
+        const stats = data?.stats || {};
+        const clinics = Array.isArray(data?.clinics) ? data.clinics : [];
+        const recentAppts = Array.isArray(data?.recentAppts) ? data.recentAppts : [];
+        _overviewClinics = clinics;
+        _overviewAppts   = recentAppts;
 
         document.getElementById("greetSub").textContent = `Managing ${clinics.length} clinic location(s) · Audit Trail Health`;
         document.getElementById("statPhysicians").textContent = stats?.total_physicians ?? "—";
@@ -523,7 +525,8 @@ function _renderStaffRows(rows) {
                         style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
                 </div>
             </td>
-        </tr>`).join("")
+        </tr>`;
+        }).join("")
         : `<tr><td colspan="8" class="table-empty">No staff members found</td></tr>`;
 }
 

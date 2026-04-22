@@ -67,14 +67,16 @@ const getAdminDashboard = (req, res) => {
     SELECT c.clinic_id, c.clinic_name, c.city, c.state,
       COUNT(DISTINCT d.department_id) AS departments,
       COUNT(DISTINCT ph.physician_id) AS physicians,
-      COUNT(DISTINCT a.appointment_id) AS appointments_this_month
+      COUNT(DISTINCT CASE
+        WHEN a.appointment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+         AND a.appointment_date <  DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+        THEN a.appointment_id
+      END) AS appointments_this_month
     FROM clinic c
     LEFT JOIN department d ON d.clinic_id = c.clinic_id
+    LEFT JOIN physician ph ON ph.department_id = d.department_id
     LEFT JOIN office o ON o.clinic_id = c.clinic_id
     LEFT JOIN appointment a ON a.office_id = o.office_id
-      AND MONTH(a.appointment_date) = MONTH(CURDATE())
-      AND YEAR(a.appointment_date) = YEAR(CURDATE())
-    LEFT JOIN physician ph ON ph.department_id = d.department_id
     GROUP BY c.clinic_id, c.clinic_name, c.city, c.state
     ORDER BY c.clinic_name`;
 
@@ -192,7 +194,7 @@ const getAllStaff = (req, res) => {
             c.clinic_name
      FROM staff st
      LEFT JOIN department d ON st.department_id = d.department_id
-     LEFT JOIN clinic c ON st.clinic_id = c.clinic_id
+     LEFT JOIN clinic c ON c.clinic_id = COALESCE(st.clinic_id, d.clinic_id)
      ORDER BY st.last_name, st.first_name`,
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });
@@ -845,8 +847,10 @@ const checkTerminationEligibility = (req, res) => {
   const staffId = parseInt(req.params.id);
   if (!staffId) return res.status(400).json({ message: 'staff_id required' });
 
-  const clinicSql = `SELECT d.clinic_id FROM staff s
-    JOIN department d ON s.department_id = d.department_id WHERE s.staff_id = ?`;
+  const clinicSql = `SELECT COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+    FROM staff s
+    LEFT JOIN department d ON s.department_id = d.department_id
+    WHERE s.staff_id = ?`;
 
   db.query(clinicSql, [staffId], (err, rows) => {
     if (err) return res.status(500).json({ message: err.message });
@@ -854,7 +858,8 @@ const checkTerminationEligibility = (req, res) => {
     const clinicId = rows[0].clinic_id;
 
     const statsSql = `SELECT
-      (SELECT COUNT(*) FROM staff s2 JOIN department d2 ON s2.department_id=d2.department_id WHERE d2.clinic_id=?) AS current_staff,
+      (SELECT COUNT(*) FROM staff s2 LEFT JOIN department d2 ON s2.department_id=d2.department_id
+        WHERE COALESCE(s2.clinic_id, d2.clinic_id)=?) AS current_staff,
       (SELECT COUNT(*) FROM patient pt JOIN physician ph ON pt.primary_physician_id=ph.physician_id
         JOIN department dp ON ph.department_id=dp.department_id WHERE dp.clinic_id=?) AS clinic_patients`;
 
@@ -878,8 +883,8 @@ const terminateStaff = (req, res) => {
   const staffId = parseInt(req.params.id);
   if (!staffId) return res.status(400).json({ message: 'staff_id required' });
 
-  const lookupSql = `SELECT s.staff_id, u.user_id, d.clinic_id
-    FROM staff s JOIN department d ON s.department_id=d.department_id
+  const lookupSql = `SELECT s.staff_id, u.user_id, COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+    FROM staff s LEFT JOIN department d ON s.department_id=d.department_id
     LEFT JOIN users u ON u.staff_id=s.staff_id WHERE s.staff_id=?`;
 
   db.query(lookupSql, [staffId], (err, rows) => {
@@ -888,7 +893,8 @@ const terminateStaff = (req, res) => {
     const { user_id, clinic_id } = rows[0];
 
     const statsSql = `SELECT
-      (SELECT COUNT(*) FROM staff s2 JOIN department d2 ON s2.department_id=d2.department_id WHERE d2.clinic_id=?) AS current_staff,
+      (SELECT COUNT(*) FROM staff s2 LEFT JOIN department d2 ON s2.department_id=d2.department_id
+        WHERE COALESCE(s2.clinic_id, d2.clinic_id)=?) AS current_staff,
       (SELECT COUNT(*) FROM patient pt JOIN physician ph ON pt.primary_physician_id=ph.physician_id
         JOIN department dp ON ph.department_id=dp.department_id WHERE dp.clinic_id=?) AS clinic_patients`;
 

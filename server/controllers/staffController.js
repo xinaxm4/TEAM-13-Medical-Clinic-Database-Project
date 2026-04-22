@@ -174,7 +174,13 @@ const getStaffDashboard = (req, res) => {
   if (!user_id) return res.status(400).json({ message: "user_id is required" });
 
   db.query(
-    "SELECT staff_id FROM users WHERE user_id = ? AND role = 'staff'",
+    `SELECT u.staff_id,
+            s.department_id,
+            COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+     FROM users u
+     JOIN staff s ON u.staff_id = s.staff_id
+     LEFT JOIN department d ON s.department_id = d.department_id
+     WHERE u.user_id = ? AND u.role = 'staff'`,
     [user_id],
     (err, rows) => {
       if (err || rows.length === 0) {
@@ -182,6 +188,7 @@ const getStaffDashboard = (req, res) => {
       }
 
       const staff_id = rows[0].staff_id;
+      const staff_clinic_id = rows[0].clinic_id;
       if (!staff_id) {
         return res.status(403).json({ message: "No staff profile linked to this account" });
       }
@@ -189,25 +196,26 @@ const getStaffDashboard = (req, res) => {
       const staffSql = `
         SELECT s.staff_id, s.first_name, s.last_name, s.date_of_birth,
                s.role, s.phone_number, s.email, s.hire_date,
-               s.shift_start, s.shift_end,
+               s.shift_start, s.shift_end, s.department_id,
+               COALESCE(s.clinic_id, d.clinic_id) AS clinic_id,
                d.department_name, c.clinic_name
         FROM staff s
         LEFT JOIN department d ON s.department_id = d.department_id
-        LEFT JOIN clinic c ON d.clinic_id = c.clinic_id
+        LEFT JOIN clinic c ON c.clinic_id = COALESCE(s.clinic_id, d.clinic_id)
         WHERE s.staff_id = ?`;
 
       const appointmentsSql = `
         SELECT a.appointment_id, a.appointment_date, a.appointment_time,
                p.first_name AS patient_first, p.last_name AS patient_last,
                CONCAT(ph.first_name, ' ', ph.last_name) AS physician_name,
-               st.status_name
+               st.status_name, o.city, c.clinic_name
         FROM appointment a
         JOIN patient p ON a.patient_id = p.patient_id
         JOIN physician ph ON a.physician_id = ph.physician_id
         JOIN appointment_status st ON a.status_id = st.status_id
-        WHERE ph.department_id = (
-          SELECT department_id FROM staff WHERE staff_id = ?
-        )
+        JOIN office o ON a.office_id = o.office_id
+        JOIN clinic c ON o.clinic_id = c.clinic_id
+        WHERE o.clinic_id = ?
         AND a.appointment_date >= CURDATE()
         ORDER BY a.appointment_date ASC, a.appointment_time ASC
         LIMIT 20`;
@@ -220,10 +228,15 @@ const getStaffDashboard = (req, res) => {
                b.payment_status, b.payment_method, b.payment_date,
                b.due_date,
                p.first_name, p.last_name,
-               i.provider_name AS insurance_provider
+               i.provider_name AS insurance_provider,
+               c.clinic_name
         FROM billing b
+        JOIN appointment a ON b.appointment_id = a.appointment_id
+        JOIN office o      ON a.office_id      = o.office_id
+        JOIN clinic c      ON o.clinic_id      = c.clinic_id
         JOIN patient p    ON b.patient_id   = p.patient_id
         LEFT JOIN insurance i ON b.insurance_id = i.insurance_id
+        WHERE o.clinic_id = ?
         ORDER BY
           CASE WHEN b.payment_status = 'Unpaid' OR b.payment_status IS NULL THEN 0 ELSE 1 END ASC,
           b.due_date ASC,
@@ -238,9 +251,9 @@ const getStaffDashboard = (req, res) => {
         if (completed === 3) res.json(data);
       }
 
-      db.query(staffSql,        [staff_id],  (e, r) => { data.staff        = e ? null : r[0]; finish(); });
-      db.query(appointmentsSql, [staff_id],  (e, r) => { data.appointments = e ? []   : r;    finish(); });
-      db.query(billingSql,      [],          (e, r) => { data.billing      = e ? []   : r;    finish(); });
+      db.query(staffSql,        [staff_id],         (e, r) => { data.staff        = e ? null : r[0]; finish(); });
+      db.query(appointmentsSql, [staff_clinic_id],  (e, r) => { data.appointments = e ? []   : r;    finish(); });
+      db.query(billingSql,      [staff_clinic_id],  (e, r) => { data.billing      = e ? []   : r;    finish(); });
     }
   );
 };
@@ -497,19 +510,38 @@ const deleteMedicalHistoryNote = (req, res) => {
 
 /* POST /api/staff/appointments/book — staff books for any patient */
 const staffBookAppointment = (req, res) => {
-    const { patient_id, physician_id, date, time, reason, appointment_type } = req.body;
+    const { patient_id, physician_id, date, time, reason, appointment_type, user_id } = req.body;
     if (!patient_id || !physician_id || !date || !time)
         return res.status(400).json({ message: "patient_id, physician_id, date, and time are required" });
-
-    const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    const dayOfWeek = dayNames[new Date(date + "T12:00:00").getDay()];
+    if (!user_id)
+        return res.status(400).json({ message: "user_id is required" });
 
     db.query(
-        "SELECT office_id FROM work_schedule WHERE physician_id = ? AND day_of_week = ? LIMIT 1",
-        [physician_id, dayOfWeek],
-        (err, sched) => {
+        `SELECT COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+         FROM users u
+         JOIN staff s ON u.staff_id = s.staff_id
+         LEFT JOIN department d ON s.department_id = d.department_id
+         WHERE u.user_id = ? AND u.role = 'staff'`,
+        [user_id],
+        (ctxErr, ctxRows) => {
+            if (ctxErr || !ctxRows.length) {
+                return res.status(404).json({ message: "Staff user not found" });
+            }
+
+            const staffClinicId = ctxRows[0].clinic_id;
+            const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+            const dayOfWeek = dayNames[new Date(date + "T12:00:00").getDay()];
+
+            db.query(
+                `SELECT ws.office_id
+                 FROM work_schedule ws
+                 JOIN office o ON ws.office_id = o.office_id
+                 WHERE ws.physician_id = ? AND ws.day_of_week = ? AND o.clinic_id = ?
+                 LIMIT 1`,
+                [physician_id, dayOfWeek, staffClinicId],
+                (err, sched) => {
             if (err || !sched.length)
-                return res.status(400).json({ message: "Physician not scheduled on that day" });
+                return res.status(400).json({ message: "Physician is not scheduled at your clinic on that day" });
 
             const office_id = sched[0].office_id;
             const sql = `INSERT INTO appointment
@@ -523,9 +555,11 @@ const staffBookAppointment = (req, res) => {
                     if (e2.code === "ER_DUP_ENTRY")
                         return res.status(409).json({ message: "That time slot is already booked." });
                     return res.status(500).json({ message: "Could not book appointment: " + e2.message });
-                }
+                    }
                 res.json({ message: "Appointment booked successfully", appointment_id: result.insertId });
             });
+                }
+            );
         }
     );
 };
@@ -533,16 +567,35 @@ const staffBookAppointment = (req, res) => {
 /* PUT /api/staff/billing/:id/pay */
 const markBillingPaid = (req, res) => {
     const { id } = req.params;
-    const { payment_method } = req.body;
+    const { payment_method, user_id } = req.body;
     if (!payment_method) return res.status(400).json({ message: "payment_method required" });
+    if (!user_id) return res.status(400).json({ message: "user_id required" });
 
     db.query(
-        "UPDATE billing SET payment_status = 'Paid', payment_method = ?, payment_date = CURDATE() WHERE bill_id = ?",
-        [payment_method, id],
-        (err, result) => {
-            if (err) return res.status(500).json({ message: "Could not update billing record" });
-            if (result.affectedRows === 0) return res.status(404).json({ message: "Bill not found" });
-            res.json({ message: "Billing marked as paid" });
+        `SELECT COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+         FROM users u
+         JOIN staff s ON u.staff_id = s.staff_id
+         LEFT JOIN department d ON s.department_id = d.department_id
+         WHERE u.user_id = ? AND u.role = 'staff'`,
+        [user_id],
+        (ctxErr, ctxRows) => {
+            if (ctxErr || !ctxRows.length) {
+                return res.status(404).json({ message: "Staff user not found" });
+            }
+
+            db.query(
+                `UPDATE billing b
+                 JOIN appointment a ON b.appointment_id = a.appointment_id
+                 JOIN office o ON a.office_id = o.office_id
+                 SET b.payment_status = 'Paid', b.payment_method = ?, b.payment_date = CURDATE()
+                 WHERE b.bill_id = ? AND o.clinic_id = ?`,
+                [payment_method, id, ctxRows[0].clinic_id],
+                (err, result) => {
+                    if (err) return res.status(500).json({ message: "Could not update billing record" });
+                    if (result.affectedRows === 0) return res.status(404).json({ message: "Bill not found for your clinic" });
+                    res.json({ message: "Billing marked as paid" });
+                }
+            );
         }
     );
 };
@@ -667,16 +720,31 @@ const onboardPatient = (req, res) => {
 
 /* GET /api/staff/physicians/accepting — physicians accepting new patients */
 const getAcceptingPhysicians = (req, res) => {
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ message: "user_id is required" });
+
     db.query(
-        `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty, ph.physician_type,
-                o.city, ws.day_of_week, ws.start_time, ws.end_time
-         FROM physician ph
-         JOIN work_schedule ws ON ph.physician_id = ws.physician_id
-         JOIN office o ON ws.office_id = o.office_id
-         WHERE COALESCE(ph.accepting_new_patients, 1) = 1
-           AND ph.physician_type = 'primary'
-         ORDER BY o.city, ph.last_name`,
-        (err, rows) => {
+        `SELECT COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+         FROM users u
+         JOIN staff s ON u.staff_id = s.staff_id
+         LEFT JOIN department d ON s.department_id = d.department_id
+         WHERE u.user_id = ? AND u.role = 'staff'`,
+        [user_id],
+        (ctxErr, ctxRows) => {
+            if (ctxErr || !ctxRows.length) return res.status(404).json({ message: "Staff user not found" });
+
+            db.query(
+                `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty, ph.physician_type,
+                        o.city, ws.day_of_week, ws.start_time, ws.end_time
+                 FROM physician ph
+                 JOIN work_schedule ws ON ph.physician_id = ws.physician_id
+                 JOIN office o ON ws.office_id = o.office_id
+                 WHERE COALESCE(ph.accepting_new_patients, 1) = 1
+                   AND ph.physician_type = 'primary'
+                   AND o.clinic_id = ?
+                 ORDER BY o.city, ph.last_name`,
+                [ctxRows[0].clinic_id],
+                (err, rows) => {
             if (err) return res.status(500).json({ message: "Query failed" });
             const map = {};
             rows.forEach(r => {
@@ -695,23 +763,42 @@ const getAcceptingPhysicians = (req, res) => {
                 });
             });
             res.json(Object.values(map));
+                }
+            );
         }
     );
 };
 
 /* GET /api/staff/physicians — all physicians for staff booking */
 const getAllPhysicians = (req, res) => {
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ message: "user_id is required" });
+
     db.query(
-        `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty, ph.physician_type,
-                o.city
-         FROM physician ph
-         JOIN work_schedule ws ON ph.physician_id = ws.physician_id
-         JOIN office o ON ws.office_id = o.office_id
-         GROUP BY ph.physician_id, o.city
-         ORDER BY o.city, ph.last_name`,
-        (err, rows) => {
+        `SELECT COALESCE(s.clinic_id, d.clinic_id) AS clinic_id
+         FROM users u
+         JOIN staff s ON u.staff_id = s.staff_id
+         LEFT JOIN department d ON s.department_id = d.department_id
+         WHERE u.user_id = ? AND u.role = 'staff'`,
+        [user_id],
+        (ctxErr, ctxRows) => {
+            if (ctxErr || !ctxRows.length) return res.status(404).json({ message: "Staff user not found" });
+
+            db.query(
+                `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty, ph.physician_type,
+                        o.city
+                 FROM physician ph
+                 JOIN work_schedule ws ON ph.physician_id = ws.physician_id
+                 JOIN office o ON ws.office_id = o.office_id
+                 WHERE o.clinic_id = ?
+                 GROUP BY ph.physician_id, o.city
+                 ORDER BY o.city, ph.last_name`,
+                [ctxRows[0].clinic_id],
+                (err, rows) => {
             if (err) return res.status(500).json({ message: "Query failed" });
             res.json(rows);
+                }
+            );
         }
     );
 };
