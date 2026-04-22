@@ -1,4 +1,5 @@
 const db = require("../db");
+const { getAdminScope } = require("../utils/adminScope");
 
 /* ─────────────────────────────────────────────
    Report 1: Patient Billing Statement
@@ -57,51 +58,64 @@ const getBillingStatement = (req, res) => {
    GET /api/reports/daily-schedule?date=YYYY-MM-DD&user_id=Y
 ───────────────────────────────────────────── */
 const getDailySchedule = (req, res) => {
-    const { date, clinic_id } = req.query;
+    const { date, clinic_id, user_id } = req.query;
     const now = new Date();
     const localToday = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
     const targetDate = date || localToday;
+    db.query("SELECT role FROM users WHERE user_id = ?", [user_id], (roleErr, roleRows) => {
+        if (roleErr || !roleRows.length) return res.status(500).json({ message: "Query failed" });
+        const role = roleRows[0].role;
 
-    // Optional clinic filter — admin can scope to one location
-    const clinicFilter = clinic_id ? "AND o.clinic_id = ?" : "";
-    const params = clinic_id ? [targetDate, clinic_id] : [targetDate];
+        const runQuery = (resolvedClinicId) => {
+            const clinicFilter = resolvedClinicId ? "AND o.clinic_id = ?" : "";
+            const params = resolvedClinicId ? [targetDate, resolvedClinicId] : [targetDate];
 
-    const sql = `
-        SELECT
-          a.appointment_id,
-          a.appointment_time,
-          CONCAT(pt.first_name, ' ', pt.last_name)  AS patient_name,
-          pt.phone_number                            AS patient_phone,
-          CONCAT(ph.first_name, ' ', ph.last_name)  AS physician_name,
-          ph.specialty,
-          a.appointment_type,
-          a.duration_minutes,
-          a.reason_for_visit,
-          s.status_name,
-          o.city,
-          o.street_address,
-          c.clinic_name
-        FROM appointment a
-        JOIN patient pt              ON a.patient_id  = pt.patient_id
-        JOIN physician ph             ON a.physician_id = ph.physician_id
-        JOIN appointment_status s     ON a.status_id    = s.status_id
-        JOIN office o                 ON a.office_id    = o.office_id
-        JOIN clinic c                 ON o.clinic_id    = c.clinic_id
-        WHERE a.appointment_date = ? ${clinicFilter}
-        ORDER BY o.city, a.appointment_time`;
+            const sql = `
+                SELECT
+                  a.appointment_id,
+                  a.appointment_time,
+                  CONCAT(pt.first_name, ' ', pt.last_name)  AS patient_name,
+                  pt.phone_number                            AS patient_phone,
+                  CONCAT(ph.first_name, ' ', ph.last_name)  AS physician_name,
+                  ph.specialty,
+                  a.appointment_type,
+                  a.duration_minutes,
+                  a.reason_for_visit,
+                  s.status_name,
+                  o.city,
+                  o.street_address,
+                  c.clinic_name
+                FROM appointment a
+                JOIN patient pt              ON a.patient_id  = pt.patient_id
+                JOIN physician ph             ON a.physician_id = ph.physician_id
+                JOIN appointment_status s     ON a.status_id    = s.status_id
+                JOIN office o                 ON a.office_id    = o.office_id
+                JOIN clinic c                 ON o.clinic_id    = c.clinic_id
+                WHERE a.appointment_date = ? ${clinicFilter}
+                ORDER BY o.city, a.appointment_time`;
 
-    db.query(sql, params, (err, rows) => {
-        if (err) return res.status(500).json({ message: "Query failed" });
+            db.query(sql, params, (err, rows) => {
+                if (err) return res.status(500).json({ message: "Query failed" });
 
-        const scheduled  = rows.filter(r => r.status_name === "Scheduled").length;
-        const completed  = rows.filter(r => r.status_name === "Completed").length;
-        const noShow     = rows.filter(r => r.status_name === "No-Show").length;
-        const cancelled  = rows.filter(r => r.status_name === "Cancelled").length;
+                const scheduled  = rows.filter(r => r.status_name === "Scheduled").length;
+                const completed  = rows.filter(r => r.status_name === "Completed").length;
+                const noShow     = rows.filter(r => r.status_name === "No-Show").length;
+                const cancelled  = rows.filter(r => r.status_name === "Cancelled").length;
 
-        res.json({
-            date: targetDate,
-            summary: { total: rows.length, scheduled, completed, noShow, cancelled },
-            appointments: rows
+                res.json({
+                    date: targetDate,
+                    summary: { total: rows.length, scheduled, completed, noShow, cancelled },
+                    appointments: rows
+                });
+            });
+        };
+
+        if (role !== "admin") return runQuery(clinic_id || null);
+
+        getAdminScope(db, user_id, (scopeErr, scope) => {
+            if (scopeErr || !scope) return res.status(500).json({ message: "Could not resolve admin scope." });
+            if (!scope.isGlobal) return runQuery(scope.clinic_id);
+            return runQuery(clinic_id || null);
         });
     });
 };

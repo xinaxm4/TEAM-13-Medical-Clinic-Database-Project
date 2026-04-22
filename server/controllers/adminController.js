@@ -1,6 +1,7 @@
 const db     = require("../db");
 const bcrypt = require("bcryptjs");
 const { auditLog } = require("./authController");
+const { withAdminScope, GLOBAL_ADMIN_EMAIL } = require("../utils/adminScope");
 
 // ── In-memory rate limiter ──
 const loginAttempts = new Map();
@@ -44,7 +45,14 @@ const loginAdmin = (req, res) => {
 
     res.json({
       message: "Login successful",
-      user: { id: user.user_id, email: user.email, role: user.role }
+      user: {
+        id: user.user_id,
+        email: user.email,
+        role: user.role,
+        admin_id: user.admin_id || null,
+        clinic_id: user.clinic_id || null,
+        is_global_admin: user.email === GLOBAL_ADMIN_EMAIL || user.clinic_id == null
+      }
     });
   });
 };
@@ -54,14 +62,44 @@ const loginAdmin = (req, res) => {
    Returns clinic-wide stats for the overview
 ───────────────────────────────────────────── */
 const getAdminDashboard = (req, res) => {
-  const statsSql = `
+  withAdminScope(db, req, res, (scope) => {
+  const statsSql = scope.isGlobal ? `
     SELECT
       (SELECT COUNT(*) FROM physician)  AS total_physicians,
       (SELECT COUNT(*) FROM staff)      AS total_staff,
       (SELECT COUNT(*) FROM patient)    AS total_patients,
       (SELECT COUNT(*) FROM appointment WHERE appointment_date >= CURDATE()) AS upcoming_appointments,
       (SELECT IFNULL(SUM(patient_owed),0) FROM billing WHERE payment_status != 'Paid') AS outstanding_revenue,
-      (SELECT IFNULL(SUM(total_amount),0) FROM billing) AS total_billed`;
+      (SELECT IFNULL(SUM(total_amount),0) FROM billing) AS total_billed`
+  : `
+    SELECT
+      (SELECT COUNT(*)
+         FROM physician ph
+         JOIN department d ON ph.department_id = d.department_id
+        WHERE d.clinic_id = ?) AS total_physicians,
+      (SELECT COUNT(*)
+         FROM staff st
+         LEFT JOIN department d ON st.department_id = d.department_id
+        WHERE COALESCE(st.clinic_id, d.clinic_id) = ?) AS total_staff,
+      (SELECT COUNT(*)
+         FROM patient pt
+         JOIN physician ph ON pt.primary_physician_id = ph.physician_id
+         JOIN department d ON ph.department_id = d.department_id
+        WHERE d.clinic_id = ?) AS total_patients,
+      (SELECT COUNT(*)
+         FROM appointment a
+         JOIN office o ON a.office_id = o.office_id
+        WHERE a.appointment_date >= CURDATE() AND o.clinic_id = ?) AS upcoming_appointments,
+      (SELECT IFNULL(SUM(b.patient_owed),0)
+         FROM billing b
+         JOIN appointment a ON b.appointment_id = a.appointment_id
+         JOIN office o ON a.office_id = o.office_id
+        WHERE b.payment_status != 'Paid' AND o.clinic_id = ?) AS outstanding_revenue,
+      (SELECT IFNULL(SUM(b.total_amount),0)
+         FROM billing b
+         JOIN appointment a ON b.appointment_id = a.appointment_id
+         JOIN office o ON a.office_id = o.office_id
+        WHERE o.clinic_id = ?) AS total_billed`;
 
   const clinicsSql = `
     SELECT c.clinic_id, c.clinic_name, c.city, c.state,
@@ -77,6 +115,7 @@ const getAdminDashboard = (req, res) => {
     LEFT JOIN physician ph ON ph.department_id = d.department_id
     LEFT JOIN office o ON o.clinic_id = c.clinic_id
     LEFT JOIN appointment a ON a.office_id = o.office_id
+    ${scope.isGlobal ? "" : "WHERE c.clinic_id = ?"}
     GROUP BY c.clinic_id, c.clinic_name, c.city, c.state
     ORDER BY c.clinic_name`;
 
@@ -90,6 +129,7 @@ const getAdminDashboard = (req, res) => {
     JOIN physician ph ON a.physician_id = ph.physician_id
     JOIN appointment_status s ON a.status_id = s.status_id
     JOIN office o ON a.office_id = o.office_id
+    ${scope.isGlobal ? "" : "WHERE o.clinic_id = ?"}
     ORDER BY a.appointment_date DESC, a.appointment_time DESC
     LIMIT 10`;
 
@@ -98,9 +138,14 @@ const getAdminDashboard = (req, res) => {
   const total = 3;
   function finish() { done++; if (done === total) res.json(data); }
 
-  db.query(statsSql,      (e, r) => { data.stats        = e ? null : r[0]; finish(); });
-  db.query(clinicsSql,    (e, r) => { data.clinics      = e ? []   : r;    finish(); });
-  db.query(recentApptSql, (e, r) => { data.recentAppts  = e ? []   : r;    finish(); });
+  const statsParams = scope.isGlobal ? [] : Array(6).fill(scope.clinic_id);
+  const clinicParams = scope.isGlobal ? [] : [scope.clinic_id];
+  const apptParams = scope.isGlobal ? [] : [scope.clinic_id];
+
+  db.query(statsSql, statsParams,      (e, r) => { data.stats        = e ? null : r[0]; finish(); });
+  db.query(clinicsSql, clinicParams,   (e, r) => { data.clinics      = e ? []   : r;    finish(); });
+  db.query(recentApptSql, apptParams,  (e, r) => { data.recentAppts  = e ? []   : r;    finish(); });
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -108,6 +153,7 @@ const getAdminDashboard = (req, res) => {
    Full report per clinic: appointments, revenue, physicians, staff
 ───────────────────────────────────────────── */
 const getClinicReport = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const sql = `
     SELECT
       c.clinic_id,
@@ -131,12 +177,14 @@ const getClinicReport = (req, res) => {
     LEFT JOIN appointment a     ON a.office_id      = o.office_id
     LEFT JOIN appointment_status aps ON a.status_id = aps.status_id
     LEFT JOIN billing b         ON b.appointment_id = a.appointment_id
+    ${scope.isGlobal ? "" : "WHERE c.clinic_id = ?"}
     GROUP BY c.clinic_id, c.clinic_name, c.city, c.state
     ORDER BY c.clinic_name`;
 
-  db.query(sql, (err, rows) => {
+  db.query(sql, scope.isGlobal ? [] : [scope.clinic_id], (err, rows) => {
     if (err) return res.status(500).json({ message: "Query failed: " + err.message });
     res.json({ clinics: rows });
+  });
   });
 };
 
@@ -144,6 +192,7 @@ const getClinicReport = (req, res) => {
    GET /api/admin/physicians  — list all
 ───────────────────────────────────────────── */
 const getAllPhysicians = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   db.query(
     `SELECT ph.physician_id, ph.first_name, ph.last_name, ph.email,
             ph.phone_number, ph.specialty, ph.physician_type, ph.hire_date,
@@ -175,18 +224,22 @@ const getAllPhysicians = (req, res) => {
        WHERE a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
        GROUP BY a.physician_id
      ) perf ON perf.physician_id = ph.physician_id
+     ${scope.isGlobal ? "" : "WHERE c.clinic_id = ?"}
      ORDER BY ph.last_name, ph.first_name`,
+    scope.isGlobal ? [] : [scope.clinic_id],
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });
       res.json(rows);
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
    GET /api/admin/staff-members  — list all
 ───────────────────────────────────────────── */
 const getAllStaff = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   db.query(
     `SELECT st.staff_id, st.first_name, st.last_name, st.email,
             st.phone_number, st.role, st.hire_date, st.shift_start, st.shift_end,
@@ -195,42 +248,53 @@ const getAllStaff = (req, res) => {
      FROM staff st
      LEFT JOIN department d ON st.department_id = d.department_id
      LEFT JOIN clinic c ON c.clinic_id = COALESCE(st.clinic_id, d.clinic_id)
+     ${scope.isGlobal ? "" : "WHERE COALESCE(st.clinic_id, d.clinic_id) = ?"}
      ORDER BY st.last_name, st.first_name`,
+    scope.isGlobal ? [] : [scope.clinic_id],
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });
       res.json(rows);
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
    GET /api/admin/departments  — for dropdowns
 ───────────────────────────────────────────── */
 const getDepartments = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   db.query(
     `SELECT d.department_id, d.department_name, c.clinic_id, c.clinic_name
      FROM department d JOIN clinic c ON d.clinic_id = c.clinic_id
+     ${scope.isGlobal ? "" : "WHERE c.clinic_id = ?"}
      ORDER BY c.clinic_name, d.department_name`,
+    scope.isGlobal ? [] : [scope.clinic_id],
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });
       res.json(rows);
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
    GET /api/admin/offices  — for dropdowns
 ───────────────────────────────────────────── */
 const getOffices = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   db.query(
     `SELECT o.office_id, o.city, o.street_address, c.clinic_name
      FROM office o JOIN clinic c ON o.clinic_id = c.clinic_id
+     ${scope.isGlobal ? "" : "WHERE c.clinic_id = ?"}
      ORDER BY c.clinic_name, o.city`,
+    scope.isGlobal ? [] : [scope.clinic_id],
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });
       res.json(rows);
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -257,6 +321,7 @@ function generateStaffEmail(lastName, cb) {
 }
 
 const addPhysician = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const {
     first_name, last_name, phone_number,
     specialty, physician_type, department_id, hire_date,
@@ -265,6 +330,36 @@ const addPhysician = (req, res) => {
 
   if (!first_name || !last_name || !password)
     return res.status(400).json({ message: "first_name, last_name, and password are required" });
+
+  const ensureDepartmentSql = `
+    SELECT d.department_id
+    FROM department d
+    WHERE d.department_id = ?
+    ${scope.isGlobal ? "" : "AND d.clinic_id = ?"}`;
+  const ensureDeptParams = scope.isGlobal ? [department_id] : [department_id, scope.clinic_id];
+
+  db.query(ensureDepartmentSql, ensureDeptParams, (deptErr, deptRows) => {
+    if (deptErr) return res.status(500).json({ message: "Could not validate department." });
+    if (!deptRows.length) return res.status(403).json({ message: "Department is outside your clinic scope." });
+
+    const officeIds = Array.isArray(schedule) ? schedule.map(s => s.office_id).filter(Boolean) : [];
+    const validateSchedule = (next) => {
+      if (!officeIds.length || scope.isGlobal) return next();
+      const placeholders = officeIds.map(() => "?").join(",");
+      db.query(
+        `SELECT office_id FROM office WHERE clinic_id = ? AND office_id IN (${placeholders})`,
+        [scope.clinic_id, ...officeIds],
+        (offErr, officeRows) => {
+          if (offErr) return res.status(500).json({ message: "Could not validate schedule offices." });
+          if (officeRows.length !== officeIds.length) {
+            return res.status(403).json({ message: "Schedule contains an office outside your clinic scope." });
+          }
+          next();
+        }
+      );
+    };
+
+    validateSchedule(() => {
 
   // Auto-generate unique email: lastnameNNN@audittrailhealth.com
   generateStaffEmail(last_name, (genErr, autoEmail) => {
@@ -311,6 +406,9 @@ const addPhysician = (req, res) => {
       }
     );
   });
+    });
+  });
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -320,6 +418,7 @@ const addPhysician = (req, res) => {
    Email is auto-generated: lastnameNNN@audittrailhealth.com
 ───────────────────────────────────────────── */
 const addStaff = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const {
     first_name, last_name, phone_number,
     role, department_id, clinic_id, hire_date,
@@ -328,6 +427,18 @@ const addStaff = (req, res) => {
 
   if (!first_name || !last_name || !password)
     return res.status(400).json({ message: "first_name, last_name, and password are required" });
+
+  const resolvedClinicId = scope.isGlobal ? (clinic_id || null) : scope.clinic_id;
+  const deptSql = `
+    SELECT d.department_id
+    FROM department d
+    WHERE d.department_id = ?
+    ${resolvedClinicId ? "AND d.clinic_id = ?" : ""}`;
+  const deptParams = resolvedClinicId ? [department_id, resolvedClinicId] : [department_id];
+
+  db.query(deptSql, deptParams, (deptErr, deptRows) => {
+    if (deptErr) return res.status(500).json({ message: "Could not validate department." });
+    if (!deptRows.length) return res.status(403).json({ message: "Department is outside your clinic scope." });
 
   generateStaffEmail(last_name, (genErr, autoEmail) => {
     if (genErr) return res.status(500).json({ message: "Could not generate email" });
@@ -349,7 +460,7 @@ const addStaff = (req, res) => {
 
         db.query(stSql, [
           first_name, last_name, autoEmail, phone_number || null,
-          role || "Receptionist", department_id || null, clinic_id || null,
+          role || "Receptionist", department_id || null, resolvedClinicId,
           hire_date || null, shift_start || null, shift_end || null
         ], (stErr, stResult) => {
           if (stErr) {
@@ -367,6 +478,8 @@ const addStaff = (req, res) => {
       }
     );
   });
+  });
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -375,6 +488,7 @@ const addStaff = (req, res) => {
    The frontend computes the composite score from this data.
 ───────────────────────────────────────────── */
 const getPayerScorecard = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const financialSql = `
     SELECT
       ins.insurance_id,
@@ -389,6 +503,9 @@ const getPayerScorecard = (req, res) => {
       SUM(CASE WHEN b.payment_status != 'Paid' THEN 1 ELSE 0 END)             AS unpaid_claims
     FROM insurance ins
     LEFT JOIN billing b ON ins.insurance_id = b.insurance_id
+    LEFT JOIN appointment a ON b.appointment_id = a.appointment_id
+    LEFT JOIN office o ON a.office_id = o.office_id
+    ${scope.isGlobal ? "" : "WHERE o.clinic_id = ? OR o.clinic_id IS NULL"}
     GROUP BY ins.insurance_id, ins.provider_name, ins.coverage_percentage
     ORDER BY ins.provider_name`;
 
@@ -407,19 +524,22 @@ const getPayerScorecard = (req, res) => {
     FROM insurance ins
     LEFT JOIN patient p ON p.insurance_id = ins.insurance_id
     LEFT JOIN appointment a ON a.patient_id = p.patient_id
+    LEFT JOIN office o ON a.office_id = o.office_id
     LEFT JOIN appointment_status s ON a.status_id = s.status_id
+    ${scope.isGlobal ? "" : "WHERE o.clinic_id = ? OR o.clinic_id IS NULL"}
     GROUP BY ins.insurance_id
     ORDER BY ins.insurance_id`;
 
   let financial = null, outcomes = null;
 
-  db.query(financialSql, (e1, r1) => {
+  const scopeParams = scope.isGlobal ? [] : [scope.clinic_id];
+  db.query(financialSql, scopeParams, (e1, r1) => {
     if (e1) return res.status(500).json({ message: "Something went wrong. Please try again." });
     financial = r1;
     if (outcomes !== null) mergeAndRespond();
   });
 
-  db.query(outcomesSql, (e2, r2) => {
+  db.query(outcomesSql, scopeParams, (e2, r2) => {
     if (e2) return res.status(500).json({ message: "Something went wrong. Please try again." });
     outcomes = r2;
     if (financial !== null) mergeAndRespond();
@@ -437,6 +557,7 @@ const getPayerScorecard = (req, res) => {
     }));
     res.json(merged);
   }
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -444,6 +565,7 @@ const getPayerScorecard = (req, res) => {
    Returns all clinic_accepted_insurance rows with clinic + insurance names.
 ───────────────────────────────────────────── */
 const getAcceptedInsurance = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const sql = `
     SELECT cai.id, cai.clinic_id, c.clinic_name,
            ins.insurance_id, ins.provider_name, ins.coverage_percentage,
@@ -452,11 +574,13 @@ const getAcceptedInsurance = (req, res) => {
     FROM clinic_accepted_insurance cai
     JOIN clinic c      ON cai.clinic_id    = c.clinic_id
     JOIN insurance ins ON cai.insurance_id = ins.insurance_id
+    ${scope.isGlobal ? "" : "WHERE cai.clinic_id = ?"}
     ORDER BY c.clinic_name, ins.provider_name`;
 
-  db.query(sql, (err, rows) => {
+  db.query(sql, scope.isGlobal ? [] : [scope.clinic_id], (err, rows) => {
     if (err) return res.status(500).json({ message: "Something went wrong. Please try again." });
     res.json(rows);
+  });
   });
 };
 
@@ -466,13 +590,15 @@ const getAcceptedInsurance = (req, res) => {
            min_participation_rate, effective_date, notes, user_id }
 ───────────────────────────────────────────── */
 const addAcceptedInsurance = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const {
     clinic_id, insurance_id,
     reimbursement_threshold_pct, min_participation_rate,
     effective_date, user_id
   } = req.body;
 
-  if (!clinic_id || !insurance_id || !reimbursement_threshold_pct)
+  const resolvedClinicId = scope.isGlobal ? clinic_id : scope.clinic_id;
+  if (!resolvedClinicId || !insurance_id || !reimbursement_threshold_pct)
     return res.status(400).json({ message: "clinic_id, insurance_id, and reimbursement_threshold_pct are required" });
 
   const sql = `
@@ -482,7 +608,7 @@ const addAcceptedInsurance = (req, res) => {
     VALUES (?, ?, TRUE, ?, ?, ?, ?)`;
 
   db.query(sql, [
-    clinic_id, insurance_id,
+    resolvedClinicId, insurance_id,
     reimbursement_threshold_pct,
     min_participation_rate || 75.00,
     effective_date || null,
@@ -495,6 +621,7 @@ const addAcceptedInsurance = (req, res) => {
     }
     res.status(201).json({ message: "Insurance plan added successfully", id: result.insertId });
   });
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -502,6 +629,7 @@ const addAcceptedInsurance = (req, res) => {
    Body: { removal_reason, user_id }
 ───────────────────────────────────────────── */
 const deactivateInsurance = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const { id } = req.params;
   const { removal_reason, user_id } = req.body;
 
@@ -512,14 +640,17 @@ const deactivateInsurance = (req, res) => {
     `UPDATE clinic_accepted_insurance
      SET is_active = FALSE, removed_date = CURDATE(),
          removal_reason = ?, removed_by = ?
-     WHERE id = ?`,
-    [removal_reason.trim(), user_id || null, id],
+     WHERE id = ? ${scope.isGlobal ? "" : "AND clinic_id = ?"}`,
+    scope.isGlobal
+      ? [removal_reason.trim(), user_id || null, id]
+      : [removal_reason.trim(), user_id || null, id, scope.clinic_id],
     (err, result) => {
       if (err) return res.status(500).json({ message: err.sqlMessage || err.message });
       if (result.affectedRows === 0) return res.status(404).json({ message: "Record not found." });
       res.json({ message: "Insurance plan deactivated." });
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -527,6 +658,7 @@ const deactivateInsurance = (req, res) => {
    Returns unread payer_alert rows with insurance name.
 ───────────────────────────────────────────── */
 const getPayerAlerts = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const sql = `
     SELECT pa.alert_id, pa.alert_type, pa.alert_message,
            pa.triggered_at, pa.is_read, pa.clinic_id,
@@ -535,12 +667,14 @@ const getPayerAlerts = (req, res) => {
     JOIN insurance ins ON pa.insurance_id = ins.insurance_id
     LEFT JOIN clinic c ON pa.clinic_id = c.clinic_id
     WHERE pa.is_read = FALSE
+    ${scope.isGlobal ? "" : "AND pa.clinic_id = ?"}
     ORDER BY pa.triggered_at DESC
     LIMIT 20`;
 
-  db.query(sql, (err, rows) => {
+  db.query(sql, scope.isGlobal ? [] : [scope.clinic_id], (err, rows) => {
     if (err) return res.status(500).json({ message: "Something went wrong. Please try again." });
     res.json(rows);
+  });
   });
 };
 
@@ -553,6 +687,7 @@ const getPayerAlerts = (req, res) => {
      bar      – monthly paid/unpaid counts
 ───────────────────────────────────────────── */
 const getPayerDetail = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const insId = parseInt(req.query.insurance_id);
   if (!insId) return res.status(400).json({ message: "insurance_id is required" });
 
@@ -573,7 +708,10 @@ const getPayerDetail = (req, res) => {
                AND b.payment_status != 'Paid'  THEN 1 ELSE 0 END)                AS overdue_claims
     FROM insurance ins
     LEFT JOIN billing b ON ins.insurance_id = b.insurance_id
+    LEFT JOIN appointment a ON b.appointment_id = a.appointment_id
+    LEFT JOIN office o ON a.office_id = o.office_id
     WHERE ins.insurance_id = ?
+    ${scope.isGlobal ? "" : "AND (o.clinic_id = ? OR o.clinic_id IS NULL)"}
     GROUP BY ins.insurance_id, ins.provider_name, ins.coverage_percentage`;
 
   const trendSql = `
@@ -585,7 +723,9 @@ const getPayerDetail = (req, res) => {
       COUNT(b.bill_id)                                                             AS claim_count
     FROM billing b
     JOIN appointment a ON b.appointment_id = a.appointment_id
+    JOIN office o ON a.office_id = o.office_id
     WHERE b.insurance_id = ?
+    ${scope.isGlobal ? "" : "AND o.clinic_id = ?"}
     GROUP BY DATE_FORMAT(a.appointment_date, '%Y-%m'),
              DATE_FORMAT(a.appointment_date, '%b %Y')
     ORDER BY month`;
@@ -600,7 +740,9 @@ const getPayerDetail = (req, res) => {
       IFNULL(a.appointment_type, 'General') AS appointment_type
     FROM billing b
     JOIN appointment a ON b.appointment_id = a.appointment_id
+    JOIN office o ON a.office_id = o.office_id
     WHERE b.insurance_id = ?
+    ${scope.isGlobal ? "" : "AND o.clinic_id = ?"}
     ORDER BY a.appointment_date`;
 
   const barSql = `
@@ -611,7 +753,9 @@ const getPayerDetail = (req, res) => {
       COUNT(*)                                    AS cnt
     FROM billing b
     JOIN appointment a ON b.appointment_id = a.appointment_id
+    JOIN office o ON a.office_id = o.office_id
     WHERE b.insurance_id = ?
+    ${scope.isGlobal ? "" : "AND o.clinic_id = ?"}
     GROUP BY DATE_FORMAT(a.appointment_date, '%Y-%m'),
              DATE_FORMAT(a.appointment_date, '%b %Y'),
              b.payment_status
@@ -621,10 +765,12 @@ const getPayerDetail = (req, res) => {
   const done = () => { if (--left === 0) res.json(out); };
   const bail = () => res.status(500).json({ message: "Something went wrong. Please try again." });
 
-  db.query(statsSql,   [insId], (e, r) => { if (e) return bail(); out.stats   = r[0] || {}; done(); });
-  db.query(trendSql,   [insId], (e, r) => { if (e) return bail(); out.trend   = r;           done(); });
-  db.query(scatterSql, [insId], (e, r) => { if (e) return bail(); out.scatter = r;           done(); });
-  db.query(barSql,     [insId], (e, r) => { if (e) return bail(); out.bar     = r;           done(); });
+  const payerParams = scope.isGlobal ? [insId] : [insId, scope.clinic_id];
+  db.query(statsSql,   payerParams, (e, r) => { if (e) return bail(); out.stats   = r[0] || {}; done(); });
+  db.query(trendSql,   payerParams, (e, r) => { if (e) return bail(); out.trend   = r;           done(); });
+  db.query(scatterSql, payerParams, (e, r) => { if (e) return bail(); out.scatter = r;           done(); });
+  db.query(barSql,     payerParams, (e, r) => { if (e) return bail(); out.bar     = r;           done(); });
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -635,23 +781,34 @@ const getPayerDetail = (req, res) => {
      insurance, clinic_accepted_insurance
 ───────────────────────────────────────────── */
 const getInsuranceOverview = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const summarySql = `
     SELECT
       (SELECT COUNT(DISTINCT cai.insurance_id)
          FROM clinic_accepted_insurance cai
-        WHERE cai.is_active = TRUE)                                              AS active_payers,
+        WHERE cai.is_active = TRUE
+          ${scope.isGlobal ? "" : "AND cai.clinic_id = ?"})                       AS active_payers,
       (SELECT ROUND(AVG(CASE WHEN b.total_amount > 0
                              THEN b.insurance_paid_amount / b.total_amount * 100 END), 1)
          FROM billing b
-        WHERE b.insurance_id IS NOT NULL)                                         AS avg_reimbursement_pct,
+         JOIN appointment a ON b.appointment_id = a.appointment_id
+         JOIN office o ON a.office_id = o.office_id
+        WHERE b.insurance_id IS NOT NULL
+          ${scope.isGlobal ? "" : "AND o.clinic_id = ?"})                         AS avg_reimbursement_pct,
       (SELECT ROUND(
                 SUM(CASE WHEN b.payment_status = 'Paid' THEN 0 ELSE 1 END)
                 / NULLIF(COUNT(b.bill_id), 0) * 100, 1)
          FROM billing b
-        WHERE b.insurance_id IS NOT NULL)                                         AS unpaid_claim_rate,
+         JOIN appointment a ON b.appointment_id = a.appointment_id
+         JOIN office o ON a.office_id = o.office_id
+        WHERE b.insurance_id IS NOT NULL
+          ${scope.isGlobal ? "" : "AND o.clinic_id = ?"})                         AS unpaid_claim_rate,
       (SELECT COUNT(*)
          FROM patient p
-        WHERE p.insurance_id IS NOT NULL)                                         AS covered_patients`;
+         JOIN physician ph ON p.primary_physician_id = ph.physician_id
+         JOIN department d ON ph.department_id = d.department_id
+        WHERE p.insurance_id IS NOT NULL
+          ${scope.isGlobal ? "" : "AND d.clinic_id = ?"})                         AS covered_patients`;
 
   const payerPerformanceSql = `
     SELECT
@@ -664,7 +821,11 @@ const getInsuranceOverview = (req, res) => {
       COUNT(b.bill_id)                                                             AS total_claims
     FROM insurance ins
     LEFT JOIN billing b ON b.insurance_id = ins.insurance_id
+    LEFT JOIN appointment a ON b.appointment_id = a.appointment_id
+    LEFT JOIN office o ON a.office_id = o.office_id
     LEFT JOIN clinic_accepted_insurance cai ON cai.insurance_id = ins.insurance_id
+      ${scope.isGlobal ? "" : "AND cai.clinic_id = ?"}
+    ${scope.isGlobal ? "" : "WHERE o.clinic_id = ? OR o.clinic_id IS NULL OR cai.clinic_id = ?"}
     GROUP BY ins.insurance_id, ins.provider_name
     HAVING COUNT(b.bill_id) > 0 OR threshold_pct IS NOT NULL
     ORDER BY ins.provider_name`;
@@ -677,6 +838,9 @@ const getInsuranceOverview = (req, res) => {
       SUM(CASE WHEN b.payment_status = 'Paid' THEN 0 ELSE 1 END)   AS unpaid_claims
     FROM insurance ins
     LEFT JOIN billing b ON b.insurance_id = ins.insurance_id
+    LEFT JOIN appointment a ON b.appointment_id = a.appointment_id
+    LEFT JOIN office o ON a.office_id = o.office_id
+    ${scope.isGlobal ? "" : "WHERE o.clinic_id = ? OR o.clinic_id IS NULL"}
     GROUP BY ins.insurance_id, ins.provider_name
     HAVING COUNT(b.bill_id) > 0
     ORDER BY ins.provider_name`;
@@ -694,6 +858,7 @@ const getInsuranceOverview = (req, res) => {
     JOIN appointment_status aps ON aps.status_id = a.status_id
     WHERE aps.status_name = 'Completed'
       AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+      ${scope.isGlobal ? "" : "AND EXISTS (SELECT 1 FROM office o2 WHERE o2.office_id = a.office_id AND o2.clinic_id = ?)"}
     GROUP BY DATE_FORMAT(a.appointment_date, '%Y-%m'),
              DATE_FORMAT(a.appointment_date, '%b %Y'),
              ins.insurance_id, ins.provider_name
@@ -716,6 +881,7 @@ const getInsuranceOverview = (req, res) => {
       JOIN insurance ins ON ins.insurance_id = b.insurance_id
       WHERE a.appointment_type IS NOT NULL
         AND a.appointment_type <> ''
+        ${scope.isGlobal ? "" : "AND EXISTS (SELECT 1 FROM office o WHERE o.office_id = a.office_id AND o.clinic_id = ?)"}
       GROUP BY a.appointment_type, ins.provider_name
     ) t
     JOIN (
@@ -724,6 +890,7 @@ const getInsuranceOverview = (req, res) => {
       JOIN appointment a ON a.appointment_id = b.appointment_id
       WHERE a.appointment_type IS NOT NULL
         AND a.appointment_type <> ''
+        ${scope.isGlobal ? "" : "AND EXISTS (SELECT 1 FROM office o WHERE o.office_id = a.office_id AND o.clinic_id = ?)"}
       GROUP BY a.appointment_type
       ORDER BY COUNT(*) DESC, a.appointment_type
       LIMIT 4
@@ -738,42 +905,68 @@ const getInsuranceOverview = (req, res) => {
     res.status(500).json({ message: "Something went wrong. Please try again." });
   };
 
-  db.query(summarySql,          (e, r) => { if (e) return bail(); out.summary          = r[0] || {}; done(); });
-  db.query(payerPerformanceSql, (e, r) => { if (e) return bail(); out.payerPerformance = r || [];   done(); });
-  db.query(payerStatusSql,      (e, r) => { if (e) return bail(); out.payerStatus      = r || [];   done(); });
-  db.query(volumeSql,           (e, r) => { if (e) return bail(); out.volumeTrend      = r || [];   done(); });
-  db.query(procedureSql,        (e, r) => { if (e) return bail(); out.procedureMix     = r || [];   done(); });
+  const fourScope = scope.isGlobal ? [] : Array(4).fill(scope.clinic_id);
+  const perfScope = scope.isGlobal ? [] : [scope.clinic_id, scope.clinic_id, scope.clinic_id];
+  db.query(summarySql,          fourScope, (e, r) => { if (e) return bail(); out.summary          = r[0] || {}; done(); });
+  db.query(payerPerformanceSql, perfScope, (e, r) => { if (e) return bail(); out.payerPerformance = r || [];   done(); });
+  db.query(payerStatusSql,      scope.isGlobal ? [] : [scope.clinic_id], (e, r) => { if (e) return bail(); out.payerStatus      = r || [];   done(); });
+  db.query(volumeSql,           scope.isGlobal ? [] : [scope.clinic_id], (e, r) => { if (e) return bail(); out.volumeTrend      = r || [];   done(); });
+  db.query(procedureSql,        scope.isGlobal ? [] : [scope.clinic_id, scope.clinic_id], (e, r) => { if (e) return bail(); out.procedureMix     = r || [];   done(); });
+  });
 };
 
 /* ─────────────────────────────────────────────
    PUT /api/admin/physician/:id  — edit
 ───────────────────────────────────────────── */
 const editPhysician = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const { id } = req.params;
   const { first_name, last_name, phone_number, specialty, physician_type, department_id, hire_date } = req.body;
   if (!first_name || !last_name)
     return res.status(400).json({ message: "First name and last name are required." });
 
   db.query(
-    `UPDATE physician SET first_name=?, last_name=?, phone_number=?, specialty=?,
-            physician_type=?, department_id=?, hire_date=? WHERE physician_id=?`,
-    [first_name, last_name, phone_number || null, specialty || null,
-     physician_type || "primary", department_id || null, hire_date || null, id],
-    (err, result) => {
-      if (err) return res.status(500).json({ message: "Could not update physician: " + err.message });
-      if (result.affectedRows === 0) return res.status(404).json({ message: "Physician not found." });
-      res.json({ message: "Physician updated successfully." });
+    `SELECT ph.physician_id
+     FROM physician ph
+     LEFT JOIN department d ON ph.department_id = d.department_id
+     WHERE ph.physician_id = ?
+     ${scope.isGlobal ? "" : "AND d.clinic_id = ?"}`,
+    scope.isGlobal ? [id] : [id, scope.clinic_id],
+    (checkErr, checkRows) => {
+      if (checkErr) return res.status(500).json({ message: "Could not validate physician." });
+      if (!checkRows.length) return res.status(404).json({ message: "Physician not found." });
+
+      db.query(
+        `UPDATE physician SET first_name=?, last_name=?, phone_number=?, specialty=?,
+                physician_type=?, department_id=?, hire_date=? WHERE physician_id=?`,
+        [first_name, last_name, phone_number || null, specialty || null,
+         physician_type || "primary", department_id || null, hire_date || null, id],
+        (err, result) => {
+          if (err) return res.status(500).json({ message: "Could not update physician: " + err.message });
+          if (result.affectedRows === 0) return res.status(404).json({ message: "Physician not found." });
+          res.json({ message: "Physician updated successfully." });
+        }
+      );
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
    DELETE /api/admin/physician/:id
 ───────────────────────────────────────────── */
 const deletePhysician = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const { id } = req.params;
   // Get email to also delete from users
-  db.query("SELECT email FROM physician WHERE physician_id = ?", [id], (e, rows) => {
+  db.query(
+    `SELECT ph.email
+     FROM physician ph
+     LEFT JOIN department d ON ph.department_id = d.department_id
+     WHERE ph.physician_id = ?
+     ${scope.isGlobal ? "" : "AND d.clinic_id = ?"}`,
+    scope.isGlobal ? [id] : [id, scope.clinic_id],
+    (e, rows) => {
     if (e || !rows.length) return res.status(404).json({ message: "Physician not found." });
     const email = rows[0].email;
     db.query("DELETE FROM physician WHERE physician_id = ?", [id], (err) => {
@@ -782,36 +975,53 @@ const deletePhysician = (req, res) => {
       res.json({ message: "Physician deleted." });
     });
   });
+  });
 };
 
 /* ─────────────────────────────────────────────
    PUT /api/admin/staff/:id  — edit
 ───────────────────────────────────────────── */
 const editStaff = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const { id } = req.params;
   const { first_name, last_name, phone_number, role, department_id, clinic_id, hire_date, shift_start, shift_end } = req.body;
   if (!first_name || !last_name)
     return res.status(400).json({ message: "First name and last name are required." });
 
+  const resolvedClinicId = scope.isGlobal ? (clinic_id || null) : scope.clinic_id;
   db.query(
-    `UPDATE staff SET first_name=?, last_name=?, phone_number=?, role=?,
-            department_id=?, clinic_id=?, hire_date=?, shift_start=?, shift_end=? WHERE staff_id=?`,
-    [first_name, last_name, phone_number || null, role || "Receptionist",
-     department_id || null, clinic_id || null, hire_date || null, shift_start || null, shift_end || null, id],
+    `UPDATE staff
+     LEFT JOIN department d ON staff.department_id = d.department_id
+     SET staff.first_name=?, staff.last_name=?, staff.phone_number=?, staff.role=?,
+         staff.department_id=?, staff.clinic_id=?, staff.hire_date=?, staff.shift_start=?, staff.shift_end=?
+     WHERE staff.staff_id=? ${scope.isGlobal ? "" : "AND COALESCE(staff.clinic_id, d.clinic_id) = ?"}`,
+    scope.isGlobal
+      ? [first_name, last_name, phone_number || null, role || "Receptionist",
+         department_id || null, resolvedClinicId, hire_date || null, shift_start || null, shift_end || null, id]
+      : [first_name, last_name, phone_number || null, role || "Receptionist",
+         department_id || null, resolvedClinicId, hire_date || null, shift_start || null, shift_end || null, id, scope.clinic_id],
     (err, result) => {
       if (err) return res.status(500).json({ message: "Could not update staff: " + err.message });
       if (result.affectedRows === 0) return res.status(404).json({ message: "Staff not found." });
       res.json({ message: "Staff updated successfully." });
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
    DELETE /api/admin/staff/:id
 ───────────────────────────────────────────── */
 const deleteStaff = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const { id } = req.params;
-  db.query("SELECT email FROM staff WHERE staff_id = ?", [id], (e, rows) => {
+  db.query(
+    `SELECT staff.email
+     FROM staff
+     LEFT JOIN department d ON staff.department_id = d.department_id
+     WHERE staff.staff_id = ? ${scope.isGlobal ? "" : "AND COALESCE(staff.clinic_id, d.clinic_id) = ?"}`,
+    scope.isGlobal ? [id] : [id, scope.clinic_id],
+    (e, rows) => {
     if (e || !rows.length) return res.status(404).json({ message: "Staff not found." });
     const email = rows[0].email;
     db.query("DELETE FROM staff WHERE staff_id = ?", [id], (err) => {
@@ -820,22 +1030,26 @@ const deleteStaff = (req, res) => {
       res.json({ message: "Staff member deleted." });
     });
   });
+  });
 };
 
 /* ─────────────────────────────────────────────
    PUT /api/admin/insurance/alerts/:id/read
 ───────────────────────────────────────────── */
 const markAlertRead = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const { id } = req.params;
   db.query(
-    "UPDATE payer_alert SET is_read = TRUE WHERE alert_id = ?",
-    [id],
+    `UPDATE payer_alert SET is_read = TRUE
+     WHERE alert_id = ? ${scope.isGlobal ? "" : "AND clinic_id = ?"}`,
+    scope.isGlobal ? [id] : [id, scope.clinic_id],
     (err, result) => {
       if (err) return res.status(500).json({ message: "Something went wrong. Please try again." });
       if (result.affectedRows === 0) return res.status(404).json({ message: "Alert not found." });
       res.json({ message: "Alert dismissed." });
     }
   );
+  });
 };
 
 /* ─────────────────────────────────────────────
@@ -844,6 +1058,7 @@ const markAlertRead = (req, res) => {
             can_fire  = (current_staff - 1) >= min_staff
 ───────────────────────────────────────────── */
 const checkTerminationEligibility = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const staffId = parseInt(req.params.id);
   if (!staffId) return res.status(400).json({ message: 'staff_id required' });
 
@@ -856,6 +1071,9 @@ const checkTerminationEligibility = (req, res) => {
     if (err) return res.status(500).json({ message: err.message });
     if (!rows.length) return res.status(404).json({ message: 'Staff not found' });
     const clinicId = rows[0].clinic_id;
+    if (!scope.isGlobal && clinicId !== scope.clinic_id) {
+      return res.status(403).json({ message: "Staff member is outside your clinic scope." });
+    }
 
     const statsSql = `SELECT
       (SELECT COUNT(*) FROM staff s2 LEFT JOIN department d2 ON s2.department_id=d2.department_id
@@ -874,12 +1092,14 @@ const checkTerminationEligibility = (req, res) => {
       });
     });
   });
+  });
 };
 
 /* ─────────────────────────────────────────────
    DELETE /api/admin/staff/:id/terminate
 ───────────────────────────────────────────── */
 const terminateStaff = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
   const staffId = parseInt(req.params.id);
   if (!staffId) return res.status(400).json({ message: 'staff_id required' });
 
@@ -891,6 +1111,9 @@ const terminateStaff = (req, res) => {
     if (err) return res.status(500).json({ message: err.message });
     if (!rows.length) return res.status(404).json({ message: 'Staff not found' });
     const { user_id, clinic_id } = rows[0];
+    if (!scope.isGlobal && clinic_id !== scope.clinic_id) {
+      return res.status(403).json({ message: "Staff member is outside your clinic scope." });
+    }
 
     const statsSql = `SELECT
       (SELECT COUNT(*) FROM staff s2 LEFT JOIN department d2 ON s2.department_id=d2.department_id
@@ -913,6 +1136,7 @@ const terminateStaff = (req, res) => {
         });
       });
     });
+  });
   });
 };
 
