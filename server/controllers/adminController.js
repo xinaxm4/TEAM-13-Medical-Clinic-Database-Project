@@ -188,10 +188,11 @@ const getAllStaff = (req, res) => {
   db.query(
     `SELECT st.staff_id, st.first_name, st.last_name, st.email,
             st.phone_number, st.role, st.hire_date, st.shift_start, st.shift_end,
-            d.department_name, c.clinic_name
+            st.clinic_id, st.department_id, d.department_name,
+            c.clinic_name
      FROM staff st
      LEFT JOIN department d ON st.department_id = d.department_id
-     LEFT JOIN clinic c ON d.clinic_id = c.clinic_id
+     LEFT JOIN clinic c ON st.clinic_id = c.clinic_id
      ORDER BY st.last_name, st.first_name`,
     (err, rows) => {
       if (err) return res.status(500).json({ message: "Query failed" });
@@ -205,7 +206,7 @@ const getAllStaff = (req, res) => {
 ───────────────────────────────────────────── */
 const getDepartments = (req, res) => {
   db.query(
-    `SELECT d.department_id, d.department_name, c.clinic_name
+    `SELECT d.department_id, d.department_name, c.clinic_id, c.clinic_name
      FROM department d JOIN clinic c ON d.clinic_id = c.clinic_id
      ORDER BY c.clinic_name, d.department_name`,
     (err, rows) => {
@@ -319,7 +320,7 @@ const addPhysician = (req, res) => {
 const addStaff = (req, res) => {
   const {
     first_name, last_name, phone_number,
-    role, department_id, hire_date,
+    role, department_id, clinic_id, hire_date,
     shift_start, shift_end, password
   } = req.body;
 
@@ -341,12 +342,12 @@ const addStaff = (req, res) => {
         const user_id = uResult.insertId;
 
         const stSql = `INSERT INTO staff
-          (first_name, last_name, email, phone_number, role, department_id, hire_date, shift_start, shift_end)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          (first_name, last_name, email, phone_number, role, department_id, clinic_id, hire_date, shift_start, shift_end)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
         db.query(stSql, [
           first_name, last_name, autoEmail, phone_number || null,
-          role || "Receptionist", department_id || null,
+          role || "Receptionist", department_id || null, clinic_id || null,
           hire_date || null, shift_start || null, shift_end || null
         ], (stErr, stResult) => {
           if (stErr) {
@@ -786,15 +787,15 @@ const deletePhysician = (req, res) => {
 ───────────────────────────────────────────── */
 const editStaff = (req, res) => {
   const { id } = req.params;
-  const { first_name, last_name, phone_number, role, department_id, hire_date, shift_start, shift_end } = req.body;
+  const { first_name, last_name, phone_number, role, department_id, clinic_id, hire_date, shift_start, shift_end } = req.body;
   if (!first_name || !last_name)
     return res.status(400).json({ message: "First name and last name are required." });
 
   db.query(
     `UPDATE staff SET first_name=?, last_name=?, phone_number=?, role=?,
-            department_id=?, hire_date=?, shift_start=?, shift_end=? WHERE staff_id=?`,
+            department_id=?, clinic_id=?, hire_date=?, shift_start=?, shift_end=? WHERE staff_id=?`,
     [first_name, last_name, phone_number || null, role || "Receptionist",
-     department_id || null, hire_date || null, shift_start || null, shift_end || null, id],
+     department_id || null, clinic_id || null, hire_date || null, shift_start || null, shift_end || null, id],
     (err, result) => {
       if (err) return res.status(500).json({ message: "Could not update staff: " + err.message });
       if (result.affectedRows === 0) return res.status(404).json({ message: "Staff not found." });

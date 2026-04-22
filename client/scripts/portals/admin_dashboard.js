@@ -201,6 +201,7 @@ async function loadOverview() {
    PHYSICIANS
 ══════════════════════════════════════ */
 let _departmentsLoaded = false;
+let _deptData          = [];   // raw dept rows for filtering
 let _physicianCache    = {};   // id → row object, for edit modal pre-fill
 let _staffCache        = {};   // id → row object
 let _physicianRows     = [];   // full list for client-side filtering
@@ -211,14 +212,47 @@ async function loadDepartments() {
     try {
         const r = await fetch(`/api/admin/departments?user_id=${user.id}`);
         const rows = await r.json();
+        _deptData = rows;
+        // Physician dropdowns — show all departments
         const opts = '<option value="">— Select Department —</option>' +
             rows.map(d => `<option value="${d.department_id}">${d.clinic_name} → ${d.department_name}</option>`).join("");
-        ["ph_dept","st_dept","ep_dept","es_dept"].forEach(id => {
+        ["ph_dept","ep_dept"].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerHTML = opts;
         });
+        // Staff clinic dropdowns — populate with unique clinics
+        const clinics = [...new Map(rows.map(d => [d.clinic_name, d.clinic_name])).entries()].sort();
+        const clinicOpts = '<option value="">— Select Clinic —</option>' +
+            clinics.map(([name]) => `<option value="${name}">${name}</option>`).join("");
+        ["st_clinic","es_clinic"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = clinicOpts;
+        });
+        // Staff dept dropdowns start empty until clinic is picked
+        ["st_dept","es_dept"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<option value="">— Select Department —</option>';
+        });
         _departmentsLoaded = true;
     } catch(e) {}
+}
+
+function filterStaffDeptsByClinic() {
+    const clinic = document.getElementById("st_clinic")?.value;
+    const depts = _deptData.filter(d => !clinic || d.clinic_name === clinic);
+    const el = document.getElementById("st_dept");
+    if (!el) return;
+    el.innerHTML = '<option value="">— Select Department —</option>' +
+        depts.map(d => `<option value="${d.department_id}">${d.department_name}</option>`).join("");
+}
+
+function filterEditStaffDeptsByClinic() {
+    const clinic = document.getElementById("es_clinic")?.value;
+    const depts = _deptData.filter(d => !clinic || d.clinic_name === clinic);
+    const el = document.getElementById("es_dept");
+    if (!el) return;
+    el.innerHTML = '<option value="">— Select Department —</option>' +
+        depts.map(d => `<option value="${d.department_id}">${d.department_name}</option>`).join("");
 }
 
 async function loadOfficesForSchedule() {
@@ -534,6 +568,8 @@ async function submitAddStaff() {
     const last_name    = document.getElementById("st_last").value.trim();
     const phone_number = document.getElementById("st_phone").value.trim();
     const role         = document.getElementById("st_role").value;
+    const clinic_name  = document.getElementById("st_clinic").value;
+    const clinic_id    = _deptData.find(d => d.clinic_name === clinic_name)?.clinic_id || null;
     const department_id = document.getElementById("st_dept").value;
     const hire_date    = document.getElementById("st_hire").value;
     const shift_start  = document.getElementById("st_shift_start").value;
@@ -551,7 +587,7 @@ async function submitAddStaff() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: user.id, first_name, last_name, phone_number,
-                role, department_id: department_id || null,
+                role, clinic_id: clinic_id || null, department_id: department_id || null,
                 hire_date: hire_date || null,
                 shift_start: shift_start || null, shift_end: shift_end || null,
                 password })
@@ -561,8 +597,10 @@ async function submitAddStaff() {
 
         ["st_first","st_last","st_phone","st_hire","st_shift_start","st_shift_end","st_pass"]
             .forEach(id => document.getElementById(id).value = "");
-        document.getElementById("st_role").value = "Receptionist";
-        document.getElementById("st_dept").value = "";
+        document.getElementById("st_role").value   = "Receptionist";
+        document.getElementById("st_clinic").value = "";
+        document.getElementById("st_dept").value   = "";
+        filterStaffDeptsByClinic();
 
         errEl.style.color = "#0d7a60";
         errEl.textContent = data.email
@@ -592,7 +630,10 @@ function openEditStaffModal(id) {
     document.getElementById("es_hire").value        = s.hire_date ? String(s.hire_date).split("T")[0] : "";
     document.getElementById("es_shift_start").value = s.shift_start ? String(s.shift_start).substring(0, 5) : "";
     document.getElementById("es_shift_end").value   = s.shift_end   ? String(s.shift_end).substring(0, 5) : "";
-    document.getElementById("es_dept").value        = s.department_id || "";
+    // Pre-select clinic first, then filter + select department
+    document.getElementById("es_clinic").value = s.clinic_name || "";
+    filterEditStaffDeptsByClinic();
+    document.getElementById("es_dept").value   = s.department_id || "";
     document.getElementById("esError").style.display = "none";
     document.getElementById("editStaffModal").classList.remove("hidden");
 }
@@ -613,6 +654,8 @@ async function submitEditStaff() {
     const hire_date     = document.getElementById("es_hire").value;
     const shift_start   = document.getElementById("es_shift_start").value;
     const shift_end     = document.getElementById("es_shift_end").value;
+    const es_clinic_name = document.getElementById("es_clinic").value;
+    const clinic_id      = _deptData.find(d => d.clinic_name === es_clinic_name)?.clinic_id || null;
 
     if (!first_name || !last_name) {
         errEl.textContent = "First name and last name are required.";
@@ -625,6 +668,7 @@ async function submitEditStaff() {
             body: JSON.stringify({ first_name, last_name,
                 phone_number: phone_number || null, role,
                 department_id: department_id || null,
+                clinic_id: clinic_id || null,
                 hire_date: hire_date || null,
                 shift_start: shift_start || null, shift_end: shift_end || null,
                 user_id: user.id })

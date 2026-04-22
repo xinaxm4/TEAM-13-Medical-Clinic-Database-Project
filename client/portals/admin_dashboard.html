@@ -460,8 +460,12 @@
                             </select>
                         </div>
                         <div class="form-field">
+                            <label>Clinic / Location</label>
+                            <select id="st_clinic" onchange="filterStaffDeptsByClinic()"><option value="">Select clinic…</option></select>
+                        </div>
+                        <div class="form-field">
                             <label>Department</label>
-                            <select id="st_dept"><option value="">Loading…</option></select>
+                            <select id="st_dept"><option value="">Select department…</option></select>
                         </div>
                         <div class="form-field"><label>Hire Date</label><input type="date" id="st_hire"></div>
                         <div class="form-field"><label>Shift Start</label><input type="time" id="st_shift_start"></div>
@@ -1010,8 +1014,12 @@
                 </select>
             </div>
             <div class="form-field">
+                <label>Clinic / Location</label>
+                <select id="es_clinic" onchange="filterEditStaffDeptsByClinic()"><option value="">Select clinic…</option></select>
+            </div>
+            <div class="form-field">
                 <label>Department</label>
-                <select id="es_dept"><option value="">Loading…</option></select>
+                <select id="es_dept"><option value="">Select department…</option></select>
             </div>
             <div class="form-field"><label>Hire Date</label><input type="date" id="es_hire"></div>
             <div class="form-field"><label>Shift Start</label><input type="time" id="es_shift_start"></div>
