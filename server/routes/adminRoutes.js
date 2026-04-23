@@ -5,6 +5,7 @@ const {
   getAllPhysicians, getPhysicianPerformanceDetail, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
   getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
+  getInsuranceRawClaims, getInsurancePortfolioRaw,
   deactivateInsurance, getPayerAlerts, markAlertRead,
   checkTerminationEligibility, terminateStaff
 } = require("../controllers/adminController");
@@ -30,6 +31,8 @@ router.delete("/staff/:id",      requireRole("admin"), deleteStaff);
 router.get("/insurance/scorecard",           requireRole("admin"), getPayerScorecard);
 router.get("/insurance/payer-detail",        requireRole("admin"), getPayerDetail);
 router.get("/insurance/overview",            requireRole("admin"), getInsuranceOverview);
+router.get("/insurance/raw-claims",          requireRole("admin"), getInsuranceRawClaims);
+router.get("/insurance/portfolio-raw",       requireRole("admin"), getInsurancePortfolioRaw);
 router.get("/insurance/accepted",            requireRole("admin"), getAcceptedInsurance);
 router.post("/insurance/accept",             requireRole("admin"), addAcceptedInsurance);
 router.put("/insurance/:id/deactivate",      requireRole("admin"), deactivateInsurance);

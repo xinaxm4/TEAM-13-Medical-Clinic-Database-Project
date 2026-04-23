@@ -1109,6 +1109,194 @@ const getInsuranceOverview = (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
+   GET /api/admin/insurance/raw-claims
+   Raw billing/claim rows behind payer performance metrics
+───────────────────────────────────────────── */
+const getInsuranceRawClaims = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
+    const insuranceId = req.query.insurance_id ? parseInt(req.query.insurance_id, 10) : null;
+    const requestedClinicId = req.query.clinic_id ? parseInt(req.query.clinic_id, 10) : null;
+    const clinicId = scope.isGlobal ? requestedClinicId : scope.clinic_id;
+
+    const where = [];
+    const params = [];
+    if (insuranceId) {
+      where.push("b.insurance_id = ?");
+      params.push(insuranceId);
+    }
+    if (clinicId) {
+      where.push("o.clinic_id = ?");
+      params.push(clinicId);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const summarySql = `
+      SELECT
+        COUNT(b.bill_id) AS claim_rows,
+        COUNT(DISTINCT b.patient_id) AS patients,
+        SUM(IFNULL(b.total_amount, 0)) AS total_billed,
+        SUM(IFNULL(b.insurance_paid_amount, 0)) AS total_paid,
+        SUM(IFNULL(b.patient_owed, 0)) AS total_outstanding,
+        ROUND(AVG(CASE WHEN b.total_amount > 0
+          THEN b.insurance_paid_amount / b.total_amount * 100 END), 1) AS avg_reimb_pct
+      FROM billing b
+      JOIN appointment a ON b.appointment_id = a.appointment_id
+      JOIN office o ON a.office_id = o.office_id
+      ${whereSql}`;
+
+    const rowsSql = `
+      SELECT
+        b.bill_id,
+        ins.insurance_id,
+        ins.provider_name,
+        c.clinic_id,
+        c.clinic_name,
+        a.appointment_date,
+        a.appointment_time,
+        CONCAT(pt.first_name, ' ', pt.last_name) AS patient_name,
+        CONCAT(ph.first_name, ' ', ph.last_name) AS physician_name,
+        IFNULL(a.appointment_type, 'General') AS appointment_type,
+        IFNULL(b.total_amount, 0) AS total_amount,
+        IFNULL(b.insurance_paid_amount, 0) AS insurance_paid_amount,
+        IFNULL(b.patient_owed, 0) AS patient_owed,
+        b.payment_status,
+        b.payment_method,
+        b.payment_date,
+        b.due_date,
+        ROUND(CASE WHEN b.total_amount > 0
+          THEN b.insurance_paid_amount / b.total_amount * 100 ELSE 0 END, 1) AS reimb_pct
+      FROM billing b
+      JOIN insurance ins ON b.insurance_id = ins.insurance_id
+      JOIN appointment a ON b.appointment_id = a.appointment_id
+      JOIN office o ON a.office_id = o.office_id
+      JOIN clinic c ON o.clinic_id = c.clinic_id
+      JOIN patient pt ON b.patient_id = pt.patient_id
+      JOIN physician ph ON a.physician_id = ph.physician_id
+      ${whereSql}
+      ORDER BY a.appointment_date DESC, a.appointment_time DESC, b.bill_id DESC
+      LIMIT 150`;
+
+    let out = {};
+    let left = 2;
+    const done = () => { if (--left === 0) res.json(out); };
+
+    db.query(summarySql, params, (err1, rows1) => {
+      if (err1) return res.status(500).json({ message: "Could not load raw insurance claim summary." });
+      out.summary = rows1[0] || {};
+      done();
+    });
+
+    db.query(rowsSql, params, (err2, rows2) => {
+      if (err2) return res.status(500).json({ message: "Could not load raw insurance claim rows." });
+      out.rows = rows2 || [];
+      done();
+    });
+  });
+};
+
+/* ─────────────────────────────────────────────
+   GET /api/admin/insurance/portfolio-raw
+   Accepted-plan contracts + coverage/claims backing portfolio overview
+───────────────────────────────────────────── */
+const getInsurancePortfolioRaw = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
+    const insuranceId = req.query.insurance_id ? parseInt(req.query.insurance_id, 10) : null;
+    const requestedClinicId = req.query.clinic_id ? parseInt(req.query.clinic_id, 10) : null;
+    const clinicId = scope.isGlobal ? requestedClinicId : scope.clinic_id;
+
+    const where = ["cai.is_active = TRUE"];
+    const params = [];
+    if (insuranceId) {
+      where.push("cai.insurance_id = ?");
+      params.push(insuranceId);
+    }
+    if (clinicId) {
+      where.push("cai.clinic_id = ?");
+      params.push(clinicId);
+    }
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+
+    const summarySql = `
+      SELECT
+        COUNT(*) AS accepted_rows,
+        COUNT(DISTINCT cai.insurance_id) AS payers,
+        COUNT(DISTINCT cai.clinic_id) AS clinics,
+        SUM(COALESCE(roll.covered_patients, 0)) AS covered_patients,
+        SUM(COALESCE(roll.total_claims, 0)) AS total_claims
+      FROM clinic_accepted_insurance cai
+      JOIN clinic c ON cai.clinic_id = c.clinic_id
+      JOIN insurance ins ON cai.insurance_id = ins.insurance_id
+      LEFT JOIN (
+        SELECT
+          ins.insurance_id,
+          o.clinic_id,
+          COUNT(DISTINCT p.patient_id) AS covered_patients,
+          COUNT(b.bill_id) AS total_claims,
+          ROUND(AVG(CASE WHEN b.total_amount > 0
+            THEN b.insurance_paid_amount / b.total_amount * 100 END), 1) AS avg_reimb_pct
+        FROM insurance ins
+        LEFT JOIN patient p ON p.insurance_id = ins.insurance_id
+        LEFT JOIN appointment a ON a.patient_id = p.patient_id
+        LEFT JOIN office o ON a.office_id = o.office_id
+        LEFT JOIN billing b ON b.appointment_id = a.appointment_id
+        GROUP BY ins.insurance_id, o.clinic_id
+      ) roll ON roll.insurance_id = cai.insurance_id AND roll.clinic_id = cai.clinic_id
+      ${whereSql}`;
+
+    const rowsSql = `
+      SELECT
+        cai.id,
+        cai.clinic_id,
+        c.clinic_name,
+        cai.insurance_id,
+        ins.provider_name,
+        ins.coverage_percentage AS contracted_rate,
+        cai.reimbursement_threshold_pct,
+        cai.min_participation_rate,
+        cai.effective_date,
+        COALESCE(roll.covered_patients, 0) AS covered_patients,
+        COALESCE(roll.total_claims, 0) AS total_claims,
+        COALESCE(roll.avg_reimb_pct, 0) AS avg_reimb_pct
+      FROM clinic_accepted_insurance cai
+      JOIN clinic c ON cai.clinic_id = c.clinic_id
+      JOIN insurance ins ON cai.insurance_id = ins.insurance_id
+      LEFT JOIN (
+        SELECT
+          ins.insurance_id,
+          o.clinic_id,
+          COUNT(DISTINCT p.patient_id) AS covered_patients,
+          COUNT(b.bill_id) AS total_claims,
+          ROUND(AVG(CASE WHEN b.total_amount > 0
+            THEN b.insurance_paid_amount / b.total_amount * 100 END), 1) AS avg_reimb_pct
+        FROM insurance ins
+        LEFT JOIN patient p ON p.insurance_id = ins.insurance_id
+        LEFT JOIN appointment a ON a.patient_id = p.patient_id
+        LEFT JOIN office o ON a.office_id = o.office_id
+        LEFT JOIN billing b ON b.appointment_id = a.appointment_id
+        GROUP BY ins.insurance_id, o.clinic_id
+      ) roll ON roll.insurance_id = cai.insurance_id AND roll.clinic_id = cai.clinic_id
+      ${whereSql}
+      ORDER BY c.clinic_name, ins.provider_name`;
+
+    let out = {};
+    let left = 2;
+    const done = () => { if (--left === 0) res.json(out); };
+
+    db.query(summarySql, params, (err1, rows1) => {
+      if (err1) return res.status(500).json({ message: "Could not load insurance portfolio summary." });
+      out.summary = rows1[0] || {};
+      done();
+    });
+
+    db.query(rowsSql, params, (err2, rows2) => {
+      if (err2) return res.status(500).json({ message: "Could not load insurance portfolio rows." });
+      out.rows = rows2 || [];
+      done();
+    });
+  });
+};
+
+/* ─────────────────────────────────────────────
    PUT /api/admin/physician/:id  — edit
 ───────────────────────────────────────────── */
 const editPhysician = (req, res) => {
@@ -1338,7 +1526,7 @@ module.exports = {
   getClinicFinancialDetail,
   getAllPhysicians, getPhysicianPerformanceDetail, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
-  getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
+  getPayerScorecard, getPayerDetail, getInsuranceOverview, getInsuranceRawClaims, getInsurancePortfolioRaw, getAcceptedInsurance, addAcceptedInsurance,
   deactivateInsurance, getPayerAlerts, markAlertRead,
   checkTerminationEligibility, terminateStaff
 };

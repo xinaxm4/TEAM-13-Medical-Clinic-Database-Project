@@ -716,6 +716,32 @@
                 </div>
 
                 <div class="section-block" style="margin-top:16px">
+                    <div class="section-block-header"><h3>Raw Claim Data Behind Payer Scores</h3></div>
+                    <div style="display:flex;gap:12px;align-items:flex-end;padding:16px 20px;border-bottom:1px solid #f0f2f8;flex-wrap:wrap">
+                        <div>
+                            <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px">Payer</label>
+                            <select id="insRawPayer" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit;min-width:200px">
+                                <option value="">All Payers</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px">Clinic</label>
+                            <select id="insRawClinic" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit;min-width:200px">
+                                <option value="">All Locations</option>
+                            </select>
+                        </div>
+                        <button class="quick-btn blue" onclick="loadInsuranceRawClaims()" style="padding:9px 18px;margin-bottom:1px">Load Raw Claims</button>
+                    </div>
+                    <div id="insRawStats" style="display:none;padding:12px 20px;border-bottom:1px solid #f0f2f8;gap:24px;font-size:13px"></div>
+                    <div style="overflow-x:auto">
+                        <table class="data-table">
+                            <thead><tr><th>Bill #</th><th>Date</th><th>Payer</th><th>Patient</th><th>Physician</th><th>Clinic</th><th>Total</th><th>Insurance Paid</th><th>Patient Owes</th><th>Status</th><th>Reimb %</th></tr></thead>
+                            <tbody id="insRawBody"><tr><td colspan="11" class="table-empty">Select filters and load raw claims</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section-block" style="margin-top:16px">
                     <div class="section-block-header"><h3>Insurance Portfolio Overview</h3></div>
                     <div style="padding:0 24px 24px">
                         <div class="ins-portfolio-grid">
@@ -756,6 +782,32 @@
                             <p class="ins-chart-sub">Flags derived only from existing billing, appointment, patient, insurance, and accepted-plan data</p>
                             <div id="insPortfolioAlerts">
                                 <div style="color:#aaa;font-size:13px;padding:10px 0">Loading portfolio signals…</div>
+                            </div>
+                        </div>
+
+                        <div class="section-block" style="margin-top:16px">
+                            <div class="section-block-header"><h3>Portfolio Raw Data</h3></div>
+                            <div style="display:flex;gap:12px;align-items:flex-end;padding:16px 20px;border-bottom:1px solid #f0f2f8;flex-wrap:wrap">
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px">Payer</label>
+                                    <select id="insPortfolioPayer" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit;min-width:200px">
+                                        <option value="">All Payers</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px">Clinic</label>
+                                    <select id="insPortfolioClinic" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit;min-width:200px">
+                                        <option value="">All Locations</option>
+                                    </select>
+                                </div>
+                                <button class="quick-btn blue" onclick="loadInsurancePortfolioRaw()" style="padding:9px 18px;margin-bottom:1px">Load Portfolio Data</button>
+                            </div>
+                            <div id="insPortfolioRawStats" style="display:none;padding:12px 20px;border-bottom:1px solid #f0f2f8;gap:24px;font-size:13px"></div>
+                            <div style="overflow-x:auto">
+                                <table class="data-table">
+                                    <thead><tr><th>Payer</th><th>Clinic</th><th>Contracted</th><th>Min Threshold</th><th>Participation</th><th>Covered Patients</th><th>Claims</th><th>Avg Reimb %</th><th>Effective</th></tr></thead>
+                                    <tbody id="insPortfolioRawBody"><tr><td colspan="9" class="table-empty">Select filters and load portfolio rows</td></tr></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

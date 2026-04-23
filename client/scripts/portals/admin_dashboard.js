@@ -158,13 +158,14 @@ function filterClinicSummary() {
 function filterRecentAppts() {
     const rawQ   = (document.getElementById("apptSearchInput")?.value || "").trim();
     const emailQ = (user?.email || "").toLowerCase();
-    const q      = rawQ.toLowerCase() === emailQ ? "" : rawQ.toLowerCase();
-    const status = document.getElementById("apptStatusFilter")?.value    || "";
-    const loc    = document.getElementById("apptLocationFilter")?.value  || "";
+    const loweredQ = rawQ.toLowerCase();
+    const q = (loweredQ === emailQ || loweredQ.includes("@")) ? "" : loweredQ;
+    const status = (document.getElementById("apptStatusFilter")?.value || "").trim().toLowerCase();
+    const loc    = (document.getElementById("apptLocationFilter")?.value || "").trim().toLowerCase();
     const rows = _overviewAppts.filter(a =>
-        (!q      || a.patient_name.toLowerCase().includes(q) || a.physician_name.toLowerCase().includes(q)) &&
-        (!status || a.status_name === status) &&
-        (!loc    || a.city === loc)
+        (!q      || (a.patient_name || "").toLowerCase().includes(q) || (a.physician_name || "").toLowerCase().includes(q)) &&
+        (!status || (a.status_name || "").trim().toLowerCase() === status) &&
+        (!loc    || (a.city || "").trim().toLowerCase() === loc)
     );
     _renderRecentAppts(rows);
 }
@@ -1073,6 +1074,26 @@ function _computeScore(row) {
 let _allPayers = [];
 let _insuranceOverview = null;
 
+function populateInsuranceFilterOptions() {
+    const payerOptions = `<option value="">All Payers</option>` +
+        _allPayers.map(p => `<option value="${p.insurance_id}">${p.provider_name}</option>`).join("");
+    ["insRawPayer","insPortfolioPayer"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = payerOptions;
+    });
+
+    fetch(`/api/admin/dashboard?user_id=${user.id}`)
+        .then(r => r.json())
+        .then(d => {
+            const clinicOptions = `<option value="">All Locations</option>` +
+                (d.clinics || []).map(c => `<option value="${c.clinic_id}">${c.clinic_name} — ${c.city}</option>`).join("");
+            ["insRawClinic","insPortfolioClinic"].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = clinicOptions;
+            });
+        }).catch(() => {});
+}
+
 /* ── Main loader ── */
 async function loadInsurance() {
     try {
@@ -1090,6 +1111,9 @@ async function loadInsurance() {
         _renderAlertBanner(alerts);
         _renderAllPayersTable(_allPayers);
         _renderInsuranceOverview(_insuranceOverview);
+        populateInsuranceFilterOptions();
+        loadInsuranceRawClaims();
+        loadInsurancePortfolioRaw();
         loadAcceptedInsurance();   // pre-load manage tab so it's ready
         if (_allPayers.length) selectPayer(_allPayers[0].insurance_id);
     } catch(e) {
@@ -1421,6 +1445,105 @@ function _renderInsuranceOverview(overview) {
     _renderOverviewVolumeChart(overview.volumeTrend || []);
     _renderOverviewTypesChart(overview.procedureMix || []);
     _renderPortfolioAlerts(overview);
+}
+
+async function loadInsuranceRawClaims() {
+    const insuranceId = document.getElementById("insRawPayer")?.value || "";
+    const clinicId = document.getElementById("insRawClinic")?.value || "";
+    const tbody = document.getElementById("insRawBody");
+    const stats = document.getElementById("insRawStats");
+    if (!tbody || !stats) return;
+
+    tbody.innerHTML = `<tr><td colspan="11" class="table-empty">Loading raw claim rows…</td></tr>`;
+    stats.style.display = "none";
+    stats.innerHTML = "";
+
+    try {
+        const params = new URLSearchParams({ user_id: user.id });
+        if (insuranceId) params.set("insurance_id", insuranceId);
+        if (clinicId) params.set("clinic_id", clinicId);
+        const r = await fetch(`/api/admin/insurance/raw-claims?${params.toString()}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "Could not load raw claims");
+
+        const s = data.summary || {};
+        stats.style.display = "flex";
+        stats.innerHTML = [
+            { label:"Claim Rows", val:s.claim_rows ?? 0, col:"#1f2a6d" },
+            { label:"Patients", val:s.patients ?? 0, col:"#4a90d9" },
+            { label:"Total Billed", val:money(s.total_billed), col:"#7a5cdb" },
+            { label:"Insurance Paid", val:money(s.total_paid), col:"#0d7a60" },
+            { label:"Outstanding", val:money(s.total_outstanding), col:"#e05c5c" },
+            { label:"Avg Reimb", val:`${s.avg_reimb_pct ?? 0}%`, col:"#c87d00" }
+        ].map(x => `<span><strong style="color:${x.col}">${x.val}</strong> ${x.label}</span>`).join(" &nbsp;·&nbsp; ");
+
+        const rows = data.rows || [];
+        tbody.innerHTML = rows.length
+            ? rows.map(row => `<tr>
+                <td class="primary">#${row.bill_id}</td>
+                <td>${fmt(row.appointment_date)}</td>
+                <td>${row.provider_name}</td>
+                <td>${row.patient_name}</td>
+                <td>${row.physician_name}</td>
+                <td>${row.clinic_name}</td>
+                <td>${money(row.total_amount)}</td>
+                <td style="color:#0d7a60">${money(row.insurance_paid_amount)}</td>
+                <td style="color:#e05c5c">${money(row.patient_owed)}</td>
+                <td>${pill(row.payment_status || "Unpaid")}</td>
+                <td>${parseFloat(row.reimb_pct || 0).toFixed(1)}%</td>
+            </tr>`).join("")
+            : `<tr><td colspan="11" class="table-empty">No raw claim rows found for this filter</td></tr>`;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="11" class="table-empty">Could not load: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadInsurancePortfolioRaw() {
+    const insuranceId = document.getElementById("insPortfolioPayer")?.value || "";
+    const clinicId = document.getElementById("insPortfolioClinic")?.value || "";
+    const tbody = document.getElementById("insPortfolioRawBody");
+    const stats = document.getElementById("insPortfolioRawStats");
+    if (!tbody || !stats) return;
+
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading portfolio rows…</td></tr>`;
+    stats.style.display = "none";
+    stats.innerHTML = "";
+
+    try {
+        const params = new URLSearchParams({ user_id: user.id });
+        if (insuranceId) params.set("insurance_id", insuranceId);
+        if (clinicId) params.set("clinic_id", clinicId);
+        const r = await fetch(`/api/admin/insurance/portfolio-raw?${params.toString()}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "Could not load portfolio rows");
+
+        const s = data.summary || {};
+        stats.style.display = "flex";
+        stats.innerHTML = [
+            { label:"Accepted Rows", val:s.accepted_rows ?? 0, col:"#1f2a6d" },
+            { label:"Payers", val:s.payers ?? 0, col:"#4a90d9" },
+            { label:"Clinics", val:s.clinics ?? 0, col:"#7a5cdb" },
+            { label:"Covered Patients", val:s.covered_patients ?? 0, col:"#0d7a60" },
+            { label:"Claims", val:s.total_claims ?? 0, col:"#e05c5c" }
+        ].map(x => `<span><strong style="color:${x.col}">${x.val}</strong> ${x.label}</span>`).join(" &nbsp;·&nbsp; ");
+
+        const rows = data.rows || [];
+        tbody.innerHTML = rows.length
+            ? rows.map(row => `<tr>
+                <td class="primary">${row.provider_name}</td>
+                <td>${row.clinic_name}</td>
+                <td>${parseFloat(row.contracted_rate || 0).toFixed(0)}%</td>
+                <td>${parseFloat(row.reimbursement_threshold_pct || 0).toFixed(0)}%</td>
+                <td>${parseFloat(row.min_participation_rate || 0).toFixed(0)}%</td>
+                <td>${row.covered_patients ?? 0}</td>
+                <td>${row.total_claims ?? 0}</td>
+                <td>${parseFloat(row.avg_reimb_pct || 0).toFixed(1)}%</td>
+                <td>${fmt(row.effective_date)}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="9" class="table-empty">No portfolio rows found for this filter</td></tr>`;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Could not load: ${e.message}</td></tr>`;
+    }
 }
 
 function _renderOverviewReimbursementChart(rows) {
