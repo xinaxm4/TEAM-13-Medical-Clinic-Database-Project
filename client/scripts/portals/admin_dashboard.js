@@ -186,13 +186,20 @@ async function loadOverview() {
         document.getElementById("statAppts").textContent      = stats?.upcoming_appointments ?? "—";
 
         _renderClinicSummary(clinics);
-        _renderRecentAppts(recentAppts);
 
         // Populate location filter for recent appts
         const locs = [...new Set(recentAppts.map(a => a.city).filter(Boolean))].sort();
         const sel = document.getElementById("apptLocationFilter");
         if (sel) sel.innerHTML = `<option value="">All Locations</option>` +
             locs.map(l => `<option value="${l}">${l}</option>`).join("");
+
+        const statusSel = document.getElementById("apptStatusFilter");
+        const searchEl = document.getElementById("apptSearchInput");
+        if (searchEl) searchEl.value = "";
+        if (statusSel) statusSel.value = "";
+        if (sel) sel.value = "";
+
+        filterRecentAppts();
 
     } catch(e) {
         document.getElementById("greetSub").textContent = "Could not connect to server.";
@@ -917,6 +924,7 @@ function initAdminApptReport() {
     if (dateEl && !dateEl.value) dateEl.value = today;
 
     const sel = document.getElementById("rptClinic");
+    const finSel = document.getElementById("finClinic");
     if (sel && sel.options.length <= 1) {
         // Reuse clinic data from overview endpoint
         fetch(`/api/admin/dashboard?user_id=${user.id}`)
@@ -927,6 +935,12 @@ function initAdminApptReport() {
                     o.value = c.clinic_id;
                     o.textContent = c.clinic_name + " — " + c.city;
                     sel.appendChild(o);
+                    if (finSel) {
+                        const fo = document.createElement("option");
+                        fo.value = c.clinic_id;
+                        fo.textContent = c.clinic_name + " — " + c.city;
+                        finSel.appendChild(fo);
+                    }
                 });
             }).catch(() => {});
     }
@@ -973,6 +987,51 @@ async function loadAdminAppointments() {
             : `<tr><td colspan="7" class="table-empty">No appointments on ${date}${clinicId ? " at this location" : ""}</td></tr>`;
     } catch(e) {
         tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Could not load: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadClinicFinancialDetail() {
+    const clinicId = document.getElementById("finClinic")?.value || "";
+    const tbody = document.getElementById("finRawBody");
+    const stats = document.getElementById("finRawStats");
+    if (!tbody || !stats) return;
+
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading raw billing data…</td></tr>`;
+    stats.style.display = "none";
+    stats.innerHTML = "";
+
+    try {
+        const q = clinicId ? `&clinic_id=${clinicId}` : "";
+        const r = await fetch(`/api/admin/clinic-financial-detail?user_id=${user.id}${q}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "Could not load billing detail");
+
+        const s = data.summary || {};
+        stats.style.display = "flex";
+        stats.innerHTML = [
+            { label: "Billing Rows", val: s.billing_rows ?? 0, col: "#1f2a6d" },
+            { label: "Total Billed", val: money(s.total_billed), col: "#4a90d9" },
+            { label: "Insurance Paid", val: money(s.insurance_paid), col: "#0d7a60" },
+            { label: "Patient Owed", val: money(s.patient_owed), col: "#e05c5c" },
+            { label: "Collected", val: money(s.total_collected), col: "#7a5cdb" }
+        ].map(x => `<span><strong style="color:${x.col}">${x.val}</strong> ${x.label}</span>`).join(" &nbsp;·&nbsp; ");
+
+        const rows = data.rows || [];
+        tbody.innerHTML = rows.length
+            ? rows.map(row => `<tr>
+                <td class="primary">#${row.bill_id}</td>
+                <td>${fmt(row.appointment_date)}</td>
+                <td>${row.patient_name}</td>
+                <td>${row.physician_name}</td>
+                <td>${row.clinic_name}</td>
+                <td>${money(row.total_amount)}</td>
+                <td style="color:#0d7a60">${money(row.insurance_paid_amount)}</td>
+                <td style="color:#e05c5c">${money(row.patient_owed)}</td>
+                <td>${pill(row.payment_status || "Unpaid")}</td>
+            </tr>`).join("")
+            : `<tr><td colspan="9" class="table-empty">No billing rows found for this filter</td></tr>`;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Could not load: ${e.message}</td></tr>`;
     }
 }
 
@@ -1949,6 +2008,10 @@ async function renderAnaReviews() {
 /* ── Bootstrap ── */
 const _apptSearch = document.getElementById("apptSearchInput");
 if (_apptSearch) _apptSearch.value = "";  // clear any browser autofill
+const _apptStatus = document.getElementById("apptStatusFilter");
+if (_apptStatus) _apptStatus.value = "";
+const _apptLocation = document.getElementById("apptLocationFilter");
+if (_apptLocation) _apptLocation.value = "";
 loadOverview();
 
 /* ── Staff termination trigger ── */
