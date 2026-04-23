@@ -2,7 +2,7 @@ const express = require("express");
 const router  = express.Router();
 const {
   loginAdmin, getAdminDashboard, getClinicReport,
-  getAllPhysicians, getAllStaff, getDepartments, getOffices,
+  getAllPhysicians, getPhysicianPerformanceDetail, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
   getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
   deactivateInsurance, getPayerAlerts, markAlertRead,
@@ -14,6 +14,7 @@ router.post("/login",            loginAdmin);
 router.get("/dashboard",         requireRole("admin"), getAdminDashboard);
 router.get("/clinic-report",     requireRole("admin"), getClinicReport);
 router.get("/physicians",        requireRole("admin"), getAllPhysicians);
+router.get("/physician/:id/performance", requireRole("admin"), getPhysicianPerformanceDetail);
 router.get("/staff-members",     requireRole("admin"), getAllStaff);
 router.get("/departments",       requireRole("admin"), getDepartments);
 router.get("/offices",           requireRole("admin"), getOffices);

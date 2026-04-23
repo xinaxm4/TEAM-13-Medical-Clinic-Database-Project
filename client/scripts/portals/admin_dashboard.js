@@ -208,6 +208,8 @@ let _physicianCache    = {};   // id → row object, for edit modal pre-fill
 let _staffCache        = {};   // id → row object
 let _physicianRows     = [];   // full list for client-side filtering
 let _staffRows         = [];   // full list for client-side filtering
+let _physicianPerfCache = {};  // physician_id -> raw performance detail
+let _openPhysicianPerfId = null;
 
 async function loadDepartments() {
     if (_departmentsLoaded) return;
@@ -279,6 +281,14 @@ function _renderPhysicianRows(rows) {
                       </span>
                    </span>`
                 : `<span style="margin-left:6px;font-size:10px;color:#aaa">No data yet</span>`;
+            const perfBtnLabel = _openPhysicianPerfId === p.physician_id ? "Hide Score" : "Score Details";
+            const detailsRow = _openPhysicianPerfId === p.physician_id
+                ? `<tr id="perf-row-${p.physician_id}">
+                    <td colspan="8" style="background:#fafbfd;padding:0;border-top:none">
+                        <div id="perf-detail-${p.physician_id}" style="padding:16px 18px;color:#334">${renderPhysicianPerfDetail(p.physician_id)}</div>
+                    </td>
+                </tr>`
+                : "";
             return `<tr>
                 <td class="primary" style="white-space:nowrap">Dr. ${p.first_name} ${p.last_name}${scoreBadge}</td>
                 <td>${p.specialty || "—"}</td>
@@ -288,15 +298,115 @@ function _renderPhysicianRows(rows) {
                 <td>${p.email || "—"}</td>
                 <td>${fmt(p.hire_date)}</td>
                 <td>
-                    <div style="display:flex;gap:6px">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <button onclick="togglePhysicianScoreDetails(${p.physician_id})"
+                            style="padding:4px 10px;background:#f5f7fb;border:1px solid #c5d2f0;border-radius:6px;color:#1a3a6d;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${perfBtnLabel}</button>
                         <button onclick="openEditPhysicianModal(${p.physician_id})"
                             style="padding:4px 10px;background:#4a90d9;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Edit</button>
                         <button onclick="confirmDeletePhysician(${p.physician_id},'Dr. ${p.first_name} ${p.last_name}')"
                             style="padding:4px 10px;background:none;border:1px solid #e05c5c;border-radius:6px;color:#e05c5c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>
                     </div>
                 </td>
-            </tr>`;}).join("")
+            </tr>${detailsRow}`;}).join("")
         : `<tr><td colspan="8" class="table-empty">No physicians found</td></tr>`;
+}
+
+function perfBar(label, value, color) {
+    const safeVal = Math.max(0, Math.min(Number(value) || 0, 100));
+    return `<div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#667"><span>${label}</span><strong style="color:#223">${safeVal}%</strong></div>
+        <div style="height:8px;border-radius:999px;background:#e8edf6;overflow:hidden">
+            <div style="width:${safeVal}%;height:100%;background:${color};border-radius:999px"></div>
+        </div>
+    </div>`;
+}
+
+function renderPhysicianPerfDetail(physicianId) {
+    const data = _physicianPerfCache[physicianId];
+    if (!data) return `<div style="font-size:13px;color:#667">Loading score inputs and recent appointments…</div>`;
+
+    const s = data.summary || {};
+    const appts = data.appointments || [];
+    const score = s.performance_score ?? 0;
+    const scoreColor = score >= 80 ? "#22c97a" : score >= 60 ? "#f5a623" : "#e05c5c";
+
+    const apptRows = appts.length
+        ? appts.map(a => `<tr>
+            <td style="padding:6px 8px">${fmt(a.appointment_date)}</td>
+            <td style="padding:6px 8px">${timeFmt(a.appointment_time)}</td>
+            <td style="padding:6px 8px">${a.patient_name}</td>
+            <td style="padding:6px 8px">${a.appointment_type || "—"}</td>
+            <td style="padding:6px 8px">${pill(a.status_name)}</td>
+        </tr>`).join("")
+        : `<tr><td colspan="5" style="padding:10px 8px;color:#889">No appointments in the last 90 days.</td></tr>`;
+
+    return `<div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap">
+            <div>
+                <div style="font-size:13px;font-weight:700;color:#223">Score calculation for last 90 days</div>
+                <div style="font-size:12px;color:#667;margin-top:4px">Score = (completion % × 0.70) + ((100 − no-show %) × 0.30)</div>
+                <div style="font-size:12px;color:#667;margin-top:6px">
+                    Raw data: ${s.completed_appts || 0} completed, ${s.no_show_appts || 0} no-shows, ${s.cancelled_appts || 0} cancelled, ${s.scheduled_appts || 0} still scheduled, ${s.total_appts || 0} total appointments.
+                </div>
+            </div>
+            <div style="padding:8px 12px;border-radius:12px;border:1px solid ${scoreColor};background:${scoreColor}12;color:${scoreColor};font-weight:800;font-size:18px;min-width:110px;text-align:center">
+                ${score}/100
+            </div>
+        </div>
+
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+            ${perfBar("Completion %", s.completion_rate, "#4a90d9")}
+            ${perfBar("Attendance Score (100 - no-show %)", s.attendance_component, "#0d7a60")}
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="padding:10px 12px;border:1px solid #e0e6f2;border-radius:10px;background:#fff;font-size:12px;color:#556">
+                Weighted completion contribution: <strong style="color:#223">${s.weighted_completion_component ?? 0}</strong>
+            </div>
+            <div style="padding:10px 12px;border:1px solid #e0e6f2;border-radius:10px;background:#fff;font-size:12px;color:#556">
+                Weighted attendance contribution: <strong style="color:#223">${s.weighted_attendance_component ?? 0}</strong>
+            </div>
+        </div>
+
+        <div style="border:1px solid #e6ebf5;border-radius:10px;overflow:hidden;background:#fff">
+            <div style="padding:10px 12px;border-bottom:1px solid #eef2f8;font-size:12px;font-weight:700;color:#223">Recent appointments tied to this score</div>
+            <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="background:#f7f9fc;color:#667;text-align:left">
+                            <th style="padding:8px">Date</th>
+                            <th style="padding:8px">Time</th>
+                            <th style="padding:8px">Patient</th>
+                            <th style="padding:8px">Type</th>
+                            <th style="padding:8px">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${apptRows}</tbody>
+                </table>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function togglePhysicianScoreDetails(physicianId) {
+    _openPhysicianPerfId = _openPhysicianPerfId === physicianId ? null : physicianId;
+    _renderPhysicianRows(_physicianRows);
+    if (_openPhysicianPerfId == null || _physicianPerfCache[physicianId]) return;
+
+    try {
+        const r = await fetch(`/api/admin/physician/${physicianId}/performance?user_id=${user.id}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "Could not load score detail");
+        _physicianPerfCache[physicianId] = data;
+    } catch (e) {
+        _physicianPerfCache[physicianId] = {
+            summary: {},
+            appointments: [],
+            error: e.message || "Could not load score detail"
+        };
+    }
+
+    if (_openPhysicianPerfId === physicianId) _renderPhysicianRows(_physicianRows);
 }
 
 function filterPhysicians() {

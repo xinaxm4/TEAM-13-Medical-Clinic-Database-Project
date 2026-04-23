@@ -236,6 +236,106 @@ const getAllPhysicians = (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
+   GET /api/admin/physician/:id/performance
+   Raw performance inputs + last 90 days appointment rows
+───────────────────────────────────────────── */
+const getPhysicianPerformanceDetail = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
+    const physicianId = parseInt(req.params.id, 10);
+    if (!physicianId) return res.status(400).json({ message: "physician_id required" });
+
+    const scopeParams = scope.isGlobal ? [physicianId] : [physicianId, scope.clinic_id];
+    const physicianSql = `
+      SELECT ph.physician_id, ph.first_name, ph.last_name, ph.specialty,
+             d.department_name, c.clinic_name
+      FROM physician ph
+      LEFT JOIN department d ON ph.department_id = d.department_id
+      LEFT JOIN clinic c ON d.clinic_id = c.clinic_id
+      WHERE ph.physician_id = ?
+      ${scope.isGlobal ? "" : "AND c.clinic_id = ?"}`;
+
+    const summarySql = `
+      SELECT
+        COUNT(a.appointment_id) AS total_appts,
+        SUM(CASE WHEN s.status_name = 'Completed' THEN 1 ELSE 0 END) AS completed_appts,
+        SUM(CASE WHEN s.status_name = 'No-Show' THEN 1 ELSE 0 END) AS no_show_appts,
+        SUM(CASE WHEN s.status_name = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_appts,
+        SUM(CASE WHEN s.status_name = 'Scheduled' THEN 1 ELSE 0 END) AS scheduled_appts,
+        ROUND(SUM(CASE WHEN s.status_name = 'Completed' THEN 1 ELSE 0 END)
+          / NULLIF(COUNT(a.appointment_id), 0) * 100, 1) AS completion_rate,
+        ROUND(SUM(CASE WHEN s.status_name = 'No-Show' THEN 1 ELSE 0 END)
+          / NULLIF(COUNT(a.appointment_id), 0) * 100, 1) AS noshow_rate
+      FROM appointment a
+      JOIN appointment_status s ON a.status_id = s.status_id
+      JOIN office o ON a.office_id = o.office_id
+      WHERE a.physician_id = ?
+        AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+        ${scope.isGlobal ? "" : "AND o.clinic_id = ?"}`;
+
+    const appointmentsSql = `
+      SELECT a.appointment_id, a.appointment_date, a.appointment_time,
+             CONCAT(pt.first_name, ' ', pt.last_name) AS patient_name,
+             s.status_name, a.appointment_type, a.reason_for_visit
+      FROM appointment a
+      JOIN patient pt ON a.patient_id = pt.patient_id
+      JOIN appointment_status s ON a.status_id = s.status_id
+      JOIN office o ON a.office_id = o.office_id
+      WHERE a.physician_id = ?
+        AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+        ${scope.isGlobal ? "" : "AND o.clinic_id = ?"}
+      ORDER BY a.appointment_date DESC, a.appointment_time DESC
+      LIMIT 25`;
+
+    let out = {};
+    let left = 3;
+    let sent = false;
+    const done = () => { if (!sent && --left === 0) res.json(out); };
+    const bail = (message) => {
+      if (sent) return;
+      sent = true;
+      res.status(500).json({ message: message || "Could not load physician performance detail." });
+    };
+
+    db.query(physicianSql, scopeParams, (e1, r1) => {
+      if (e1) return bail();
+      if (!r1.length) {
+        sent = true;
+        return res.status(404).json({ message: "Physician not found." });
+      }
+      out.physician = r1[0];
+      done();
+    });
+
+    db.query(summarySql, scopeParams, (e2, r2) => {
+      if (e2) return bail();
+      const summary = r2[0] || {};
+      const completionRate = parseFloat(summary.completion_rate) || 0;
+      const noShowRate = parseFloat(summary.noshow_rate) || 0;
+      out.summary = {
+        total_appts: parseInt(summary.total_appts) || 0,
+        completed_appts: parseInt(summary.completed_appts) || 0,
+        no_show_appts: parseInt(summary.no_show_appts) || 0,
+        cancelled_appts: parseInt(summary.cancelled_appts) || 0,
+        scheduled_appts: parseInt(summary.scheduled_appts) || 0,
+        completion_rate: completionRate,
+        noshow_rate: noShowRate,
+        attendance_component: Math.max(100 - noShowRate, 0),
+        weighted_completion_component: Math.round(completionRate * 0.7 * 10) / 10,
+        weighted_attendance_component: Math.round(Math.max(100 - noShowRate, 0) * 0.3 * 10) / 10,
+        performance_score: Math.round((completionRate * 0.7) + (Math.max(100 - noShowRate, 0) * 0.3))
+      };
+      done();
+    });
+
+    db.query(appointmentsSql, scopeParams, (e3, r3) => {
+      if (e3) return bail();
+      out.appointments = r3 || [];
+      done();
+    });
+  });
+};
+
+/* ─────────────────────────────────────────────
    GET /api/admin/staff-members  — list all
 ───────────────────────────────────────────── */
 const getAllStaff = (req, res) => {
@@ -1142,7 +1242,7 @@ const terminateStaff = (req, res) => {
 
 module.exports = {
   loginAdmin, getAdminDashboard, getClinicReport,
-  getAllPhysicians, getAllStaff, getDepartments, getOffices,
+  getAllPhysicians, getPhysicianPerformanceDetail, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
   getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
   deactivateInsurance, getPayerAlerts, markAlertRead,
