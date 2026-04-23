@@ -275,7 +275,7 @@ function _renderPhysicianRows(rows) {
                       ${score}/100
                       <span class="info-tip" style="line-height:1">
                         <i class="tip-icon" style="background:${scoreColor}44;color:${scoreColor}">i</i>
-                        <span class="tip-text"><strong>${scoreLabel}</strong><br>Based on last 90 days:<br>• ${p.completed_appts} appointments completed<br>• ${p.no_show_appts} no-shows<br>• ${p.completion_rate}% show-up rate<br><br>Scores 80+ are protected from deletion.</span>
+                        <span class="tip-text"><strong>${scoreLabel}</strong><br><em>Score = (completion% × 0.70) + ((100 − no‑show%) × 0.30)</em><br><br>Last 90 days:<br>• ${p.completed_appts}/${p.total_appts} appointments completed<br>• ${p.no_show_appts} no-shows (${p.completion_rate}% show-up rate)<br><br>Scores 80+ are protected from deletion.</span>
                       </span>
                    </span>`
                 : `<span style="margin-left:6px;font-size:10px;color:#aaa">No data yet</span>`;
@@ -1837,6 +1837,8 @@ async function renderAnaReviews() {
 }
 
 /* ── Bootstrap ── */
+const _apptSearch = document.getElementById("apptSearchInput");
+if (_apptSearch) _apptSearch.value = "";  // clear any browser autofill
 loadOverview();
 
 /* ── Staff termination trigger ── */

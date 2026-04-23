@@ -266,12 +266,11 @@ BEGIN
     -- Block if payer scores >= 70 (performing well — keep the plan)
     IF v_composite >= 70 THEN
       SET v_msg = CONCAT(
-        'Cannot deactivate ', v_provider_name,
-        ': composite score is ', ROUND(v_composite, 1),
-        '/100 (block threshold: 70). ',
-        'Financial: ', ROUND(v_financial_score, 1),
-        '% | Reliability: ', ROUND(v_reliability_score, 1),
-        '% | Completion: ', ROUND(v_completion_rate, 1), '%'
+        'Cannot deactivate ', LEFT(v_provider_name, 20),
+        ': score ', ROUND(v_composite, 1),
+        '/100 >= 70. Fin:', ROUND(v_financial_score, 1),
+        '% Rel:', ROUND(v_reliability_score, 1),
+        '% Comp:', ROUND(v_completion_rate, 1), '%'
       );
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
     END IF;
