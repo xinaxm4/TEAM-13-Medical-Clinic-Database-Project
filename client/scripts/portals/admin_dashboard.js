@@ -156,7 +156,9 @@ function filterClinicSummary() {
 }
 
 function filterRecentAppts() {
-    const q      = (document.getElementById("apptSearchInput")?.value    || "").toLowerCase();
+    const rawQ   = (document.getElementById("apptSearchInput")?.value || "").trim();
+    const emailQ = (user?.email || "").toLowerCase();
+    const q      = rawQ.toLowerCase() === emailQ ? "" : rawQ.toLowerCase();
     const status = document.getElementById("apptStatusFilter")?.value    || "";
     const loc    = document.getElementById("apptLocationFilter")?.value  || "";
     const rows = _overviewAppts.filter(a =>
@@ -2012,6 +2014,12 @@ const _apptStatus = document.getElementById("apptStatusFilter");
 if (_apptStatus) _apptStatus.value = "";
 const _apptLocation = document.getElementById("apptLocationFilter");
 if (_apptLocation) _apptLocation.value = "";
+setTimeout(() => {
+    const apptSearch = document.getElementById("apptSearchInput");
+    if (apptSearch && apptSearch.value.trim().toLowerCase() === (user?.email || "").toLowerCase()) {
+        apptSearch.value = "";
+    }
+}, 50);
 loadOverview();
 
 /* ── Staff termination trigger ── */
