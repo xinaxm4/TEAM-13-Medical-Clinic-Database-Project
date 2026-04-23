@@ -160,31 +160,124 @@ const getClinicReport = (req, res) => {
       c.clinic_name,
       c.city,
       c.state,
-      COUNT(DISTINCT ph.physician_id)   AS total_physicians,
-      COUNT(DISTINCT st.staff_id)       AS total_staff,
-      COUNT(DISTINCT a.appointment_id)  AS total_appointments,
-      SUM(CASE WHEN aps.status_name = 'Completed'  THEN 1 ELSE 0 END) AS completed,
-      SUM(CASE WHEN aps.status_name = 'No-Show'    THEN 1 ELSE 0 END) AS no_shows,
-      SUM(CASE WHEN aps.status_name = 'Cancelled'  THEN 1 ELSE 0 END) AS cancelled,
-      IFNULL(SUM(b.total_amount), 0)    AS total_billed,
-      IFNULL(SUM(b.patient_owed), 0)    AS outstanding_balance,
-      IFNULL(SUM(CASE WHEN b.payment_status = 'Paid' THEN b.total_amount ELSE 0 END), 0) AS total_collected
+      COALESCE(ph.total_physicians, 0)  AS total_physicians,
+      COALESCE(st.total_staff, 0)       AS total_staff,
+      COALESCE(ap.total_appointments, 0) AS total_appointments,
+      COALESCE(ap.completed, 0)         AS completed,
+      COALESCE(ap.no_shows, 0)          AS no_shows,
+      COALESCE(ap.cancelled, 0)         AS cancelled,
+      COALESCE(fin.total_billed, 0)     AS total_billed,
+      COALESCE(fin.outstanding_balance, 0) AS outstanding_balance,
+      COALESCE(fin.total_collected, 0)  AS total_collected
     FROM clinic c
-    LEFT JOIN office o          ON o.clinic_id      = c.clinic_id
-    LEFT JOIN department d      ON d.clinic_id      = c.clinic_id
-    LEFT JOIN physician ph      ON ph.department_id = d.department_id
-    LEFT JOIN staff st          ON st.department_id = d.department_id
-    LEFT JOIN appointment a     ON a.office_id      = o.office_id
-    LEFT JOIN appointment_status aps ON a.status_id = aps.status_id
-    LEFT JOIN billing b         ON b.appointment_id = a.appointment_id
+    LEFT JOIN (
+      SELECT d.clinic_id, COUNT(DISTINCT ph.physician_id) AS total_physicians
+      FROM department d
+      LEFT JOIN physician ph ON ph.department_id = d.department_id
+      GROUP BY d.clinic_id
+    ) ph ON ph.clinic_id = c.clinic_id
+    LEFT JOIN (
+      SELECT COALESCE(st.clinic_id, d.clinic_id) AS clinic_id,
+             COUNT(DISTINCT st.staff_id) AS total_staff
+      FROM staff st
+      LEFT JOIN department d ON st.department_id = d.department_id
+      GROUP BY COALESCE(st.clinic_id, d.clinic_id)
+    ) st ON st.clinic_id = c.clinic_id
+    LEFT JOIN (
+      SELECT o.clinic_id,
+             COUNT(*) AS total_appointments,
+             SUM(CASE WHEN aps.status_name = 'Completed' THEN 1 ELSE 0 END) AS completed,
+             SUM(CASE WHEN aps.status_name = 'No-Show' THEN 1 ELSE 0 END) AS no_shows,
+             SUM(CASE WHEN aps.status_name = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled
+      FROM appointment a
+      JOIN office o ON a.office_id = o.office_id
+      JOIN appointment_status aps ON a.status_id = aps.status_id
+      GROUP BY o.clinic_id
+    ) ap ON ap.clinic_id = c.clinic_id
+    LEFT JOIN (
+      SELECT o.clinic_id,
+             SUM(IFNULL(b.total_amount, 0)) AS total_billed,
+             SUM(IFNULL(b.patient_owed, 0)) AS outstanding_balance,
+             SUM(CASE WHEN b.payment_status = 'Paid' THEN IFNULL(b.total_amount, 0) ELSE 0 END) AS total_collected
+      FROM billing b
+      JOIN appointment a ON b.appointment_id = a.appointment_id
+      JOIN office o ON a.office_id = o.office_id
+      GROUP BY o.clinic_id
+    ) fin ON fin.clinic_id = c.clinic_id
     ${scope.isGlobal ? "" : "WHERE c.clinic_id = ?"}
-    GROUP BY c.clinic_id, c.clinic_name, c.city, c.state
     ORDER BY c.clinic_name`;
 
   db.query(sql, scope.isGlobal ? [] : [scope.clinic_id], (err, rows) => {
     if (err) return res.status(500).json({ message: "Query failed: " + err.message });
     res.json({ clinics: rows });
   });
+  });
+};
+
+/* ─────────────────────────────────────────────
+   GET /api/admin/clinic-financial-detail
+   Raw billing rows behind report totals, optionally filtered by clinic
+───────────────────────────────────────────── */
+const getClinicFinancialDetail = (req, res) => {
+  withAdminScope(db, req, res, (scope) => {
+    const requestedClinicId = req.query.clinic_id ? parseInt(req.query.clinic_id, 10) : null;
+    const clinicId = scope.isGlobal ? requestedClinicId : scope.clinic_id;
+
+    const summarySql = `
+      SELECT
+        COUNT(b.bill_id) AS billing_rows,
+        SUM(IFNULL(b.total_amount, 0)) AS total_billed,
+        SUM(IFNULL(b.insurance_paid_amount, 0)) AS insurance_paid,
+        SUM(IFNULL(b.patient_owed, 0)) AS patient_owed,
+        SUM(CASE WHEN b.payment_status = 'Paid' THEN IFNULL(b.total_amount, 0) ELSE 0 END) AS total_collected
+      FROM billing b
+      JOIN appointment a ON b.appointment_id = a.appointment_id
+      JOIN office o ON a.office_id = o.office_id
+      WHERE 1=1 ${clinicId ? "AND o.clinic_id = ?" : ""}`;
+
+    const rowsSql = `
+      SELECT
+        b.bill_id,
+        a.appointment_date,
+        a.appointment_time,
+        CONCAT(pt.first_name, ' ', pt.last_name) AS patient_name,
+        CONCAT(ph.first_name, ' ', ph.last_name) AS physician_name,
+        c.clinic_name,
+        a.appointment_type,
+        IFNULL(b.total_amount, 0) AS total_amount,
+        IFNULL(b.insurance_paid_amount, 0) AS insurance_paid_amount,
+        IFNULL(b.patient_owed, 0) AS patient_owed,
+        b.payment_status,
+        b.payment_method,
+        b.payment_date,
+        b.due_date
+      FROM billing b
+      JOIN appointment a ON b.appointment_id = a.appointment_id
+      JOIN office o ON a.office_id = o.office_id
+      JOIN clinic c ON o.clinic_id = c.clinic_id
+      JOIN patient pt ON b.patient_id = pt.patient_id
+      JOIN physician ph ON a.physician_id = ph.physician_id
+      WHERE 1=1 ${clinicId ? "AND o.clinic_id = ?" : ""}
+      ORDER BY a.appointment_date DESC, a.appointment_time DESC, b.bill_id DESC
+      LIMIT 100`;
+
+    const params = clinicId ? [clinicId] : [];
+    let out = {};
+    let left = 2;
+    const done = () => { if (--left === 0) res.json(out); };
+
+    db.query(summarySql, params, (err1, rows1) => {
+      if (err1) return res.status(500).json({ message: "Could not load financial summary." });
+      out.summary = rows1[0] || {};
+      done();
+    });
+
+    db.query(rowsSql, params, (err2, rows2) => {
+      if (err2) return res.status(500).json({ message: "Could not load financial detail rows." });
+      out.rows = rows2 || [];
+      out.clinic_id = clinicId || null;
+      done();
+    });
   });
 };
 
@@ -1242,6 +1335,7 @@ const terminateStaff = (req, res) => {
 
 module.exports = {
   loginAdmin, getAdminDashboard, getClinicReport,
+  getClinicFinancialDetail,
   getAllPhysicians, getPhysicianPerformanceDetail, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
   getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,

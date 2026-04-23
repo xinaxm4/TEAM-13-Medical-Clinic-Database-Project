@@ -1,7 +1,7 @@
 const express = require("express");
 const router  = express.Router();
 const {
-  loginAdmin, getAdminDashboard, getClinicReport,
+  loginAdmin, getAdminDashboard, getClinicReport, getClinicFinancialDetail,
   getAllPhysicians, getPhysicianPerformanceDetail, getAllStaff, getDepartments, getOffices,
   addPhysician, addStaff, editPhysician, deletePhysician, editStaff, deleteStaff,
   getPayerScorecard, getPayerDetail, getInsuranceOverview, getAcceptedInsurance, addAcceptedInsurance,
@@ -13,6 +13,7 @@ const { requireRole } = require("../middleware/auth");
 router.post("/login",            loginAdmin);
 router.get("/dashboard",         requireRole("admin"), getAdminDashboard);
 router.get("/clinic-report",     requireRole("admin"), getClinicReport);
+router.get("/clinic-financial-detail", requireRole("admin"), getClinicFinancialDetail);
 router.get("/physicians",        requireRole("admin"), getAllPhysicians);
 router.get("/physician/:id/performance", requireRole("admin"), getPhysicianPerformanceDetail);
 router.get("/staff-members",     requireRole("admin"), getAllStaff);

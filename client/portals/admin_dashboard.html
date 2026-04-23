@@ -578,6 +578,28 @@
                 </div>
             </div>
 
+            <div class="section-block" style="margin-top:20px">
+                <div class="section-block-header">
+                    <div><h3>Billing Raw Data by Clinic</h3><p>Show the billing rows and money totals behind the report cards</p></div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-end;padding:16px 20px;border-bottom:1px solid #f0f2f8;flex-wrap:wrap">
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px">Location</label>
+                        <select id="finClinic" style="padding:8px 12px;border:1px solid #e0e3ed;border-radius:7px;font-size:13px;font-family:inherit;min-width:200px">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                    <button onclick="loadClinicFinancialDetail()" class="quick-btn blue" style="padding:9px 18px;margin-bottom:1px">Load Billing Data</button>
+                </div>
+                <div id="finRawStats" style="display:none;padding:12px 20px;border-bottom:1px solid #f0f2f8;gap:24px;font-size:13px"></div>
+                <div style="overflow-x:auto">
+                    <table class="data-table">
+                        <thead><tr><th>Bill #</th><th>Date</th><th>Patient</th><th>Physician</th><th>Clinic</th><th>Total</th><th>Insurance Paid</th><th>Patient Owes</th><th>Status</th></tr></thead>
+                        <tbody id="finRawBody"><tr><td colspan="9" class="table-empty">Select a clinic and click "Load Billing Data"</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
         </div><!-- /reports -->
 
         <!-- ══════════════ INSURANCE ══════════════ -->
