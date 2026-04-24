@@ -5,7 +5,7 @@ A full-stack medical clinic management system with role-based portals for patien
 
 ---
 
-## 🌐 Hosted Application
+## Hosted Application
 
 **Live URL:** https://team-13-medical-clinic-database-project-production.up.railway.app
 
@@ -13,7 +13,7 @@ The application is fully deployed and accessible at the link above. No local set
 
 ---
 
-## 👥 Login Credentials for Graders
+## Login Credentials for Graders
 
 ### Patient Portal
 **Login page:** `/client/auth/patient_login.html`
@@ -267,7 +267,7 @@ Use the same demo credentials listed at the top of this file.
 
 ---
 
-## 🧱 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -280,7 +280,7 @@ Use the same demo credentials listed at the top of this file.
 
 ---
 
-## ✅ Professor Requirements Checklist
+## Professor Requirements Checklist
 
 | # | Requirement | Status | Where to see it |
 |---|-------------|--------|-----------------|
@@ -301,7 +301,7 @@ Use the same demo credentials listed at the top of this file.
 
 ---
 
-## 🔁 Database Triggers
+## Database Triggers
 
 All 4 triggers are live on the Railway MySQL database. Run `SHOW TRIGGERS FROM railway;` in Workbench to verify.
 
@@ -323,7 +323,7 @@ All 4 triggers are live on the Railway MySQL database. Run `SHOW TRIGGERS FROM r
 
 ---
 
-## 📊 Reports
+## Reports
 
 Three formatted reports are accessible from the portals and powered by multi-table SQL queries with `JOIN`, `GROUP BY`, `ORDER BY`, and conditional aggregation (`CASE WHEN` inside `SUM`).
 
@@ -337,7 +337,7 @@ Three formatted reports are accessible from the portals and powered by multi-tab
 
 ---
 
-## 🔒 Security Features
+## Security Features
 
 - Passwords hashed with `bcryptjs` — the database never stores plain text
 - All SQL queries use parameterized placeholders — no string concatenation, no SQL injection risk
@@ -348,7 +348,7 @@ Three formatted reports are accessible from the portals and powered by multi-tab
 
 ---
 
-## 🗄️ Database Schema Summary
+## Database Schema Summary
 
 ### Tables
 
