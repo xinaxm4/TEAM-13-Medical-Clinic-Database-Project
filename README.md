@@ -14,7 +14,7 @@ Koretimi Mofolorunbo Adebowale - *koretimi79-lab*
 Alexander R Soto - *asoto731*
 
 
-A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators. Built on Node.js + Express with a MySQL relational database hosted on Railway.
+A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators. Built on Node.js +  with a MySQL relational database hosted on Railway.
 
 ---
 
@@ -69,8 +69,8 @@ The application is fully deployed and accessible at the link above. No local set
 ### Root
 | File | Description |
 |------|-------------|
-| `server.js` | Express application entry point. Registers all route groups, serves static files from `client/`, and starts the HTTP server on the configured port. |
-| `package.json` | Node.js project manifest. Lists all dependencies (`express`, `mysql2`, `bcryptjs`, `cors`, `dotenv`) and scripts (`npm start`, `npm run dev`, `npm run backup`). |
+| `server.js` |  Registers all route groups, serves static files from `client/`, and starts the HTTP server on the configured port. |
+| `package.json` | Node.js project manifest. Lists all dependencies (``, `mysql2`, `bcryptjs`, `cors`, `dotenv`) and scripts (`npm start`, `npm run dev`, `npm run backup`). |
 | `.env.example` | Template showing required environment variables. The real `.env` is gitignored and never committed. |
 | `railway.toml` | Railway deployment configuration — tells Railway how to build and start the app. |
 
@@ -98,7 +98,7 @@ The application is fully deployed and accessible at the link above. No local set
 
 ---
 
-### `server/` — Backend (Node.js / Express)
+### `server/` — Backend (Node.js / )
 
 #### `server/db.js`
 MySQL connection pool using `mysql2`. Reads credentials from `.env`. All database queries across the application go through this pool.
@@ -204,7 +204,7 @@ cd TEAM-13-Medical-Clinic-Database-Project
 npm install
 ```
 
-This installs: `express`, `mysql2`, `bcryptjs`, `cors`, `dotenv`, and `nodemon` (dev).
+This installs: ``, `mysql2`, `bcryptjs`, `cors`, `dotenv`, and `nodemon` (dev).
 
 ---
 
@@ -394,7 +394,7 @@ Three formatted reports are accessible from the portals and powered by multi-tab
 
 ```
 TEAM-13-Medical-Clinic-Database-Project/
-├── server.js                              ← Express entry point
+├── server.js                              ←  entry point
 ├── .env.example                           ← Environment variable template
 ├── railway.toml                           ← Railway deployment config
 ├── package.json                           ← Dependencies and scripts
