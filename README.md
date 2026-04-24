@@ -1,5 +1,5 @@
 # Team 13 — Audit Trail Health
-### CS 4347 — Database Systems | Medical Clinic Database Project
+### COSC 3380 — Database Systems | Medical Clinic Database Project
 
 A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators. Built on Node.js + Express with a MySQL relational database hosted on Railway.
 
