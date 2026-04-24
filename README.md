@@ -1,6 +1,13 @@
 # Team 13 — Audit Trail Health
 ### COSC 3380 — Database Systems | Medical Clinic Database Project
 
+## Collaborators included:
+Christina Tran - *xinaxm4/tinatrannnn*
+Max Camacho - *maxkmacho*
+Saif Karim Maredia - *saifmaredia*
+Koretimi Mofolorunbo Adebowale - *koretimi79-lab*
+Alexander R Soto - *asoto731*
+
 A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators. Built on Node.js + Express with a MySQL relational database hosted on Railway.
 
 ---
@@ -46,21 +53,12 @@ The application is fully deployed and accessible at the link above. No local set
 | Email | Password | Scope |
 |-------|----------|-------|
 | `admin@ath.admin.com` | `Admin@123` | Global (all clinics) |
+| `patel@ath.admin.com` | `Admin@123` | Houston Clinic |
+| `henderson@ath.admin.com` | `Admin@123` | Dallas Clinic |
 
 ---
 
-## 👥 Team Members
-
-| Branch | Member | Contributions |
-|--------|--------|---------------|
-| `TinaT2` | Tina T. | Frontend dashboards, CSS, project structure, API integration, deployment, triggers, reports, insurance analytics |
-| `MaxC` | Max C. | Backend auth, patient login/register, DB queries, email standardization |
-| `Timi-A` | Timi A. | Database schema design, seed data, initial trigger definitions |
-| `main` | All | Stable merged branch |
-
----
-
-## 📁 Submitted Files — What's Included and What Each File Does
+## Submitted Files — What's Included and What Each File Does
 
 ### Root
 | File | Description |
@@ -174,7 +172,7 @@ MySQL connection pool using `mysql2`. Reads credentials from `.env`. All databas
 
 ---
 
-## ⚙️ Local Setup Instructions
+## Local Setup Instructions
 
 Follow these steps to run the application locally against your own MySQL instance.
 
@@ -272,7 +270,7 @@ Use the same demo credentials listed at the top of this file.
 | Layer | Technology |
 |-------|------------|
 | Frontend | Vanilla HTML, CSS, JavaScript (no framework) |
-| Backend | Node.js + Express 5 |
+| Backend | Node.js |
 | Database | MySQL 8 via `mysql2` connection pool |
 | Auth | `bcryptjs` password hashing (10 salt rounds) |
 | Charts | Chart.js 4 via CDN (admin insurance analytics) |
@@ -284,11 +282,11 @@ Use the same demo credentials listed at the top of this file.
 
 | # | Requirement | Status | Where to see it |
 |---|-------------|--------|-----------------|
-| 1 | **Authentication** — multiple user roles | ✅ | 4 separate portals: patient, physician, staff, admin |
-| 2 | **Data entry forms** — add, modify, delete per role | ✅ | See role breakdown below |
-| 3 | **Database triggers** — at least 2 meaningful | ✅ | 4 triggers live in Railway (see Triggers section) |
-| 4 | **Data queries** — at least 3 | ✅ | 3 parameterized report queries + 2 insurance analytics queries |
-| 5 | **Data reports** — at least 3 | ✅ | Billing statement, daily schedule, physician activity + 2 more |
+| 1 | **Authentication** — multiple user roles | 4 separate portals: patient, physician, staff, admin |
+| 2 | **Data entry forms** — add, modify, delete per role | See role breakdown below |
+| 3 | **Database triggers** — at least 2 meaningful | 4 triggers live in Railway (see Triggers section) |
+| 4 | **Data queries** — at least 3 | 3 parameterized report queries + 2 insurance analytics queries |
+| 5 | **Data reports** — at least 3 | Billing statement, daily schedule, physician activity + 2 more |
 
 ### Data Entry Forms by Role
 
@@ -311,6 +309,7 @@ All 4 triggers are live on the Railway MySQL database. Run `SHOW TRIGGERS FROM r
 | `after_appointment_noshow` | `appointment` | `AFTER UPDATE` | When appointment is marked No-Show → automatically inserts an entry into `medical_history` with date, physician, and reason. HIPAA-aligned audit trail. |
 | `before_appointment_double_book` | `appointment` | `BEFORE INSERT` | Checks if patient already has a non-cancelled appointment at the same date + time. If so, raises `SQLSTATE '45000'` — the error message is returned to the booking UI. Enforced at the DB level, cannot be bypassed from the frontend. |
 | `after_billing_insert_check_threshold` | `billing` | `AFTER INSERT` | After every billing insert, checks if the insurance reimbursement % for that claim falls below the clinic's contracted threshold for that payer. If so, inserts a row into `payer_alert`. Alert banner appears on the admin insurance dashboard. |
+
 
 **Additional triggers (in `triggers.sql` — used by admin portal):**
 
@@ -385,7 +384,7 @@ Three formatted reports are accessible from the portals and powered by multi-tab
 
 ---
 
-## 🌐 Project Structure
+## Project Structure
 
 ```
 TEAM-13-Medical-Clinic-Database-Project/
@@ -448,7 +447,7 @@ TEAM-13-Medical-Clinic-Database-Project/
 
 ---
 
-## 🔗 API Routes Summary
+## API Routes Summary
 
 ### Auth (`/api/auth`)
 | Method | Route | Description |
