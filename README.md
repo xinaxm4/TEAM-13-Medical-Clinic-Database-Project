@@ -2,11 +2,17 @@
 ### COSC 3380 — Database Systems | Medical Clinic Database Project
 
 ## Collaborators included:
+
 Christina Tran - *xinaxm4/tinatrannnn*
+
 Max Camacho - *maxkmacho*
+
 Saif Karim Maredia - *saifmaredia*
+
 Koretimi Mofolorunbo Adebowale - *koretimi79-lab*
+
 Alexander R Soto - *asoto731*
+
 
 A full-stack medical clinic management system with role-based portals for patients, physicians, staff, and administrators. Built on Node.js + Express with a MySQL relational database hosted on Railway.
 
